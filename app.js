@@ -168,45 +168,100 @@
 
   // ---------- cues: sounds, vibration, screen ----------
   //
-  // No voice: every cue is a short tone, so it works under music and never talks over you.
+  // No voice: every cue is a short tone.
+  //
+  // iPhone mutes web audio when the ring/silent switch is on. Asking for a
+  // "playback" audio session (Safari 16.4+), or on older iOS keeping a silent
+  // <audio> element playing, moves the page to the media channel, which
+  // ignores the switch and follows the volume buttons instead.
+
+  /** A one-second silent WAV, looped to hold the media audio session. */
+  function silentWav() {
+    const rate = 8000;
+    const n = rate;
+    const buf = new ArrayBuffer(44 + n);
+    const v = new DataView(buf);
+    const str = (o, t) => { for (let k = 0; k < t.length; k++) v.setUint8(o + k, t.charCodeAt(k)); };
+    str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVE'); str(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+    str(36, 'data'); v.setUint32(40, n, true);
+    for (let k = 0; k < n; k++) v.setUint8(44 + k, 128);
+    return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+  }
 
   const Cues = {
     ctx: null,
+    out: null,
+    keeper: null,
     tones: true,
 
     /** Must run inside a tap: iOS only allows audio after a user gesture. */
     unlock(opts) {
       this.tones = opts.tones;
+      if (!this.tones) return;
+      try {
+        if (navigator.audioSession) navigator.audioSession.type = 'playback';
+        else {
+          if (!this.keeper) {
+            this.keeper = new Audio(silentWav());
+            this.keeper.loop = true;
+            this.keeper.setAttribute('playsinline', '');
+          }
+          this.keeper.play().catch(() => {});
+        }
+      } catch (e) { /* not supported */ }
       try {
         const AC = window.AudioContext || window.webkitAudioContext;
-        if (AC && !this.ctx) this.ctx = new AC();
+        if (AC && !this.ctx) {
+          this.ctx = new AC();
+          // Even out loudness so short beeps cut through on a phone speaker.
+          const comp = this.ctx.createDynamicsCompressor();
+          comp.threshold.value = -18;
+          comp.ratio.value = 4;
+          this.out = this.ctx.createGain();
+          this.out.gain.value = 1;
+          this.out.connect(comp).connect(this.ctx.destination);
+        }
         if (this.ctx && this.ctx.state !== 'running') this.ctx.resume();
+        // iOS starts the context only once something plays inside the tap.
+        this.beep(440, 20, 0, 0.0002);
       } catch (e) { /* no audio */ }
     },
-    beep(freq, ms, delay = 0, vol = 0.14) {
+    /** End of a workout: let the phone's music and audio session go back to normal. */
+    release() {
+      if (this.keeper) this.keeper.pause();
+      try { if (navigator.audioSession) navigator.audioSession.type = 'auto'; } catch (e) { /* ignore */ }
+    },
+    beep(freq, ms, delay = 0, vol = 0.5) {
       if (!this.tones || !this.ctx) return;
       try {
+        if (this.ctx.state !== 'running') this.ctx.resume();
         const t = this.ctx.currentTime + delay;
         const o = this.ctx.createOscillator();
         const g = this.ctx.createGain();
+        o.type = 'triangle'; // brighter than a sine, still soft
         o.frequency.value = freq;
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.exponentialRampToValueAtTime(vol, t + 0.02);
+        g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+        g.gain.setValueAtTime(vol, t + Math.max(0.012, ms / 1000 - 0.06));
         g.gain.exponentialRampToValueAtTime(0.0001, t + ms / 1000);
-        o.connect(g).connect(this.ctx.destination);
+        o.connect(g).connect(this.out || this.ctx.destination);
         o.start(t);
         o.stop(t + ms / 1000 + 0.02);
       } catch (e) { /* ignore */ }
     },
     buzz(p) { if (this.tones && navigator.vibrate) navigator.vibrate(p); },
-    go() { this.beep(880, 320, 0, 0.18); this.buzz(60); },                          // work starts: one long high tone
-    stopTone() { this.beep(660, 160); this.beep(523, 300, 0.18); this.buzz(30); },   // work ends: falling pair
-    tick() { this.beep(440, 90); },                                                  // last 3 seconds of any timer
-    tap() { this.beep(392, 90); this.buzz(8); },                                     // next exercise card
-    half() { this.beep(988, 70); this.beep(988, 70, 0.12); },                        // halfway: quick double blip
-    sides() { this.beep(523, 90); this.beep(523, 90, 0.16); this.buzz([20, 80, 20]); }, // switch sides: two low taps
-    round() { this.beep(523, 140); this.beep(784, 260, 0.16); },                     // new round: rising pair
-    done() { [523, 659, 784, 1047].forEach((f, i) => this.beep(f, 220, i * 0.14)); },
+    // Phone speakers are weak below ~500 Hz, so every cue sits above that.
+    go() { this.beep(1319, 380, 0, 0.7); this.buzz(60); },                              // work starts: one long high tone
+    stopTone() { this.beep(1047, 160); this.beep(784, 320, 0.18); this.buzz(30); },      // work ends: falling pair
+    tick() { this.beep(880, 110, 0, 0.45); },                                            // last 3 seconds of any timer
+    tap() { this.beep(784, 90, 0, 0.35); this.buzz(8); },                                // next exercise card
+    half() { this.beep(1568, 80); this.beep(1568, 80, 0.13); },                          // halfway: quick double blip
+    sides() { this.beep(659, 110); this.beep(659, 110, 0.18); this.buzz([20, 80, 20]); }, // switch sides: two taps
+    round() { this.beep(784, 160); this.beep(1175, 300, 0.18); },                        // new round: rising pair
+    done() { [784, 988, 1175, 1568].forEach((f, i) => this.beep(f, 240, i * 0.14)); },
+    test() { this.tick(); setTimeout(() => this.tick(), 500); setTimeout(() => this.go(), 1000); setTimeout(() => this.stopTone(), 1800); },
   };
 
   let wakeLock = null;
@@ -432,6 +487,7 @@
     runEl.hidden = true;
     runEl.innerHTML = '';
     releaseScreen();
+    setTimeout(() => { if (!R) Cues.release(); }, 2500); // after the last chime
     dock.inert = false;
     if (!sheet) {
       app.inert = false;
@@ -983,7 +1039,8 @@
     return `<div class="sheet-top"><span></span><button class="done" data-action="close">Done</button></div>
       <h1 id="sheet-title" class="detail-name" tabindex="-1">Settings</h1>
       <div class="field"><span>Sounds</span>${seg('tones', s.tones ? 'on' : 'off', [['on', 'On'], ['off', 'Off']])}
-        <p class="hint">Ticks count down the last 3 seconds. A long high tone starts each interval, a falling pair ends it. Two blips at halfway, a rising pair for a new round, two low taps to switch sides.</p></div>
+        <div class="form-actions" style="margin-top:14px"><button class="btn ghost block" data-action="test-sound">Test sound</button></div>
+        <p class="hint">Plays with the silent switch on; use the volume buttons. Ticks count down the last 3 seconds. A long high tone starts each interval, a falling pair ends it. Two blips at halfway, a rising pair for a new round, two low taps to switch sides.</p></div>
       <div class="field"><span>Dynamic stretch pace</span>${stepper('repSeconds', s.repSeconds, 'pace', 2, 6, (v) => `${v} s per rep`)}</div>
       <div class="section-label">Data</div>
       <div class="rows">
@@ -1246,6 +1303,12 @@
       }
 
       // settings
+      case 'test-sound':
+        Cues.unlock(state.settings);
+        if (!state.settings.tones) { toast('Sounds are off'); break; }
+        Cues.test();
+        setTimeout(() => { if (!R) Cues.release(); }, 3000);
+        break;
       case 'export':
         shareFile(JSON.stringify(state, null, 1), `work-it-${today()}.json`, 'application/json', 'Work it backup');
         break;
