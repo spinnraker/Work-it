@@ -166,45 +166,22 @@
   function figure(levels, view) { return window.Figure.svg(levels, view); }
 
 
-  // ---------- cues: voice, tones, vibration, screen ----------
+  // ---------- cues: sounds, vibration, screen ----------
+  //
+  // No voice: every cue is a short tone, so it works under music and never talks over you.
 
   const Cues = {
     ctx: null,
-    voice: true,
-    rate: 1,
-    voiceName: '',
     tones: true,
-    held: [], // iOS drops utterances that get garbage-collected mid-speech
 
-    /** Must run inside a tap: iOS only allows audio and speech after a user gesture. */
+    /** Must run inside a tap: iOS only allows audio after a user gesture. */
     unlock(opts) {
-      this.voice = opts.voice;
-      this.rate = opts.voiceRate || 1;
-      this.voiceName = opts.voiceName || '';
       this.tones = opts.tones;
       try {
         const AC = window.AudioContext || window.webkitAudioContext;
         if (AC && !this.ctx) this.ctx = new AC();
         if (this.ctx && this.ctx.state !== 'running') this.ctx.resume();
       } catch (e) { /* no audio */ }
-      if (this.voice && 'speechSynthesis' in window) {
-        speechSynthesis.cancel();
-        speechSynthesis.speak(new SpeechSynthesisUtterance(' '));
-      }
-    },
-    say(text, interrupt) {
-      if (!this.voice || !('speechSynthesis' in window)) return;
-      if (interrupt) speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = this.rate;
-      const v = this.voiceName && speechSynthesis.getVoices().find((x) => x.name === this.voiceName);
-      if (v) { u.voice = v; u.lang = v.lang; }
-      this.held.push(u);
-      if (this.held.length > 20) this.held.shift();
-      speechSynthesis.speak(u);
-    },
-    stop() {
-      if ('speechSynthesis' in window) speechSynthesis.cancel();
     },
     beep(freq, ms, delay = 0, vol = 0.14) {
       if (!this.tones || !this.ctx) return;
@@ -222,10 +199,13 @@
       } catch (e) { /* ignore */ }
     },
     buzz(p) { if (this.tones && navigator.vibrate) navigator.vibrate(p); },
-    go() { this.beep(880, 320, 0, 0.18); this.buzz(60); },                          // work starts
-    stopTone() { this.beep(660, 160); this.beep(523, 300, 0.18); this.buzz(30); },   // work ends
-    tick() { this.beep(440, 90); },                                                  // last 3 seconds
-    tap() { this.beep(392, 90); this.buzz(8); },
+    go() { this.beep(880, 320, 0, 0.18); this.buzz(60); },                          // work starts: one long high tone
+    stopTone() { this.beep(660, 160); this.beep(523, 300, 0.18); this.buzz(30); },   // work ends: falling pair
+    tick() { this.beep(440, 90); },                                                  // last 3 seconds of any timer
+    tap() { this.beep(392, 90); this.buzz(8); },                                     // next exercise card
+    half() { this.beep(988, 70); this.beep(988, 70, 0.12); },                        // halfway: quick double blip
+    sides() { this.beep(523, 90); this.beep(523, 90, 0.16); this.buzz([20, 80, 20]); }, // switch sides: two low taps
+    round() { this.beep(523, 140); this.beep(784, 260, 0.16); },                     // new round: rising pair
     done() { [523, 659, 784, 1047].forEach((f, i) => this.beep(f, 220, i * 0.14)); },
   };
 
@@ -251,7 +231,6 @@
 
   let R = null;
   const sideWord = (s) => (s === 'left' ? 'Left' : s === 'right' ? 'Right' : '');
-  const spokenWeight = (w) => (w ? `, ${w % 1 ? w.toFixed(1) : w} pounds` : '');
 
   function beginSession() {
     closeStale();
@@ -312,32 +291,13 @@
 
   function announce(i) {
     const step = R.steps[i];
-    const it = itemOf(step);
     switch (step.kind) {
-      case 'intro':
-        Cues.tap();
-        if (step.section === 'block') {
-          const names = R.flat.filter((f) => f.section === 'block' && f.block === step.block);
-          Cues.say(`Timed intervals. ${plural(step.rounds, 'round')}. ${names.length > 1 ? 'First' : 'Exercise'}: ${it.name}${spokenWeight(it.weight)}.`, true);
-        } else {
-          const first = i === 0 || R.steps[i - 1].section !== step.section;
-          Cues.say(`${first ? `${SEC_NAME[step.section]}. ` : ''}${first ? 'First' : 'Next'}: ${it.name}.`, true);
-        }
+      case 'intro': Cues.tap(); break;
+      case 'work': Cues.go(); break;
+      case 'rest':
+        if (step.label === 'Switch sides') Cues.sides();
+        else if (step.label === 'Round rest') Cues.round();
         break;
-      case 'ready':
-        if (step.side) Cues.say(`${sideWord(step.side)} side.`);
-        break;
-      case 'work':
-        Cues.go();
-        break;
-      case 'rest': {
-        const n = itemOf(R.steps[i + 1] || step);
-        if (step.label === 'Switch sides') Cues.say('Switch sides.');
-        else if (step.label === 'Round rest') Cues.say(`Round ${step.round} of ${step.rounds}. Next: ${n.name}${spokenWeight(n.weight)}.`);
-        else if (step.section === 'block') Cues.say(`Rest. Next: ${n.name}${spokenWeight(n.weight)}.`);
-        else Cues.say('Rest.');
-        break;
-      }
     }
   }
 
@@ -383,7 +343,7 @@
     if (step.duration >= 5 && left >= 1 && left <= 3 && step.kind !== 'intro') once(`c${left}`, () => Cues.tick());
     if (step.kind === 'work' && step.section === 'block' && step.duration >= 30) {
       const half = Math.ceil(step.duration / 2);
-      if (left === half) once('half', () => Cues.say('Halfway.'));
+      if (left === half) once('half', () => Cues.half());
     }
     if (remaining <= 0) completeStep(true);
     else updateClock(remaining, step.duration * 1000);
@@ -396,7 +356,6 @@
     const now = Date.now();
     accrue(now);
     R.pausedAt = now;
-    Cues.stop();
     persist();
     renderRun();
   }
@@ -416,7 +375,6 @@
   function unpauseForJump() {
     if (R.pausedAt != null) { R.pausedAt = null; R.lastTick = Date.now(); }
     Cues.unlock(state.settings);
-    Cues.stop();
   }
 
   /** Rest/intro: start the next interval now. Work: move on without counting it. */
@@ -444,7 +402,7 @@
     const sum = E.summarize(a.snapshot, R.steps, [...R.done], status, R.index);
     const durationSec = Math.round(R.activeMs / 1000);
     state.active = null;
-    if (status === 'completed') { Cues.done(); Cues.say('Workout complete. Nice work.', true); } else Cues.stop();
+    if (status === 'completed') Cues.done();
     closeRun();
     if (!sum.results.some((r) => r.done > 0)) {
       save();
@@ -1022,14 +980,10 @@
 
   function settingsSheet() {
     const s = state.settings;
-    const RATES = [[0.85, 'Slower'], [1, 'Normal'], [1.15, 'Faster']];
     return `<div class="sheet-top"><span></span><button class="done" data-action="close">Done</button></div>
       <h1 id="sheet-title" class="detail-name" tabindex="-1">Settings</h1>
-      <div class="field"><span>Voice</span>${seg('voice', s.voice ? 'on' : 'off', [['on', 'On'], ['off', 'Off']])}
-        <p class="hint">Calls out each exercise, the weight to grab and the next round.</p></div>
-      <div class="field"><span>Voice speed</span>${seg('voiceRate', RATES.reduce((a, [v]) => (Math.abs(v - s.voiceRate) < Math.abs(a - s.voiceRate) ? v : a), 1), RATES)}</div>
-      <div class="field"><span>Tones</span>${seg('tones', s.tones ? 'on' : 'off', [['on', 'On'], ['off', 'Off']])}
-        <p class="hint">A high tone starts each interval, ticks count down the last 3 seconds.</p></div>
+      <div class="field"><span>Sounds</span>${seg('tones', s.tones ? 'on' : 'off', [['on', 'On'], ['off', 'Off']])}
+        <p class="hint">Ticks count down the last 3 seconds. A long high tone starts each interval, a falling pair ends it. Two blips at halfway, a rising pair for a new round, two low taps to switch sides.</p></div>
       <div class="field"><span>Dynamic stretch pace</span>${stepper('repSeconds', s.repSeconds, 'pace', 2, 6, (v) => `${v} s per rep`)}</div>
       <div class="section-label">Data</div>
       <div class="rows">
@@ -1084,13 +1038,9 @@
   function setSeg(field, value) {
     if (sheet.type === 'settings') {
       const s = state.settings;
-      if (field === 'voice') s.voice = value === 'on';
       if (field === 'tones') s.tones = value === 'on';
-      if (field === 'voiceRate') s.voiceRate = Number(value);
       save();
       renderSheet();
-      if (field === 'voice' && s.voice) { Cues.unlock(s); Cues.say('Voice on.'); }
-      if (field === 'voiceRate') { Cues.unlock(s); Cues.say('Next: Dumbbell bicep curl, 15 pounds.', true); }
       if (field === 'tones' && s.tones) { Cues.unlock(s); Cues.go(); }
       return;
     }

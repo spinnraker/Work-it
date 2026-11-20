@@ -1,6 +1,6 @@
 # Work it
 
-Upper body and lower body interval workouts that run themselves: warm-up, timed circuits, then cool-down stretches. It calls out each exercise and the weight to grab, times every interval and rest, and keeps your log. Same look and setup as Habito, DTF and Pomo: black and white, no account, works offline.
+Upper body and lower body interval workouts that run themselves: warm-up, timed circuits, then cool-down stretches. It times every interval and rest with sounds (no voice), shows the next exercise and the weight to grab, and keeps your log. Same look and setup as Habito, DTF and Pomo: black and white, no account, works offline.
 
 ## Use it
 
@@ -38,9 +38,9 @@ The cool-down stretches target the muscles that day works, so they don't add to 
 
 Tap **Start workout** and put the phone where you can see it.
 
-- **Warm-up and cool-down**: each stretch gets a "Next up" card (6 s, the voice names it), a short get-ready, then the hold or the reps. Dynamic stretches are paced at 3 s a rep (change it in ⋯). "Each side" stretches do left, then right.
-- **Timed intervals** run as a circuit: every exercise in the block once, then the next round. 15 s rest between exercises, 30 s between rounds. During each rest the voice calls the next exercise and its weight ("Rest. Next: Dumbbell bench press, 17.5 pounds"), and the screen says which dumbbells to grab.
-- A high tone starts each interval, ticks count down the last 3 seconds, a falling pair ends it. "Halfway" is called on intervals of 30 s or more.
+- **Warm-up and cool-down**: each stretch gets a "Next up" card (6 s), a short get-ready, then the hold or the reps. Dynamic stretches are paced at 3 s a rep (change it in ⋯). "Each side" stretches do left, then right.
+- **Timed intervals** run as a circuit: every exercise in the block once, then the next round. 15 s rest between exercises, 30 s between rounds. During each rest the screen shows the next exercise and which dumbbells to grab.
+- Sounds only, no voice: ticks count down the last 3 seconds of every timer, a long high tone starts each interval and a falling pair ends it. A quick double blip marks halfway (intervals of 30 s or more), a rising pair starts a new round, and two low taps mean switch sides. Turn sounds off in ⋯.
 - Controls: **Back** restarts the interval (or goes to the previous one), **Pause**, **Skip** (skips a rest, or moves on without counting the interval), **End**.
 - The screen stays awake. Switching away pauses. Closing or reloading keeps your place; tap **Resume workout**.
 

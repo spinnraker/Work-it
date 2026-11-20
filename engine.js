@@ -192,9 +192,6 @@
 
   function defaultSettings() {
     return {
-      voice: true,
-      voiceName: '',
-      voiceRate: 1,
       tones: true,
       repSeconds: 3, // pace for dynamic stretches
     };
@@ -310,9 +307,6 @@
     };
     const s = raw.settings && typeof raw.settings === 'object' ? raw.settings : {};
     const settings = {
-      voice: s.voice !== false,
-      voiceName: str(s.voiceName).slice(0, 200),
-      voiceRate: Number.isFinite(Number(s.voiceRate)) ? Math.min(1.4, Math.max(0.6, Number(s.voiceRate))) : 1,
       tones: s.tones !== false,
       repSeconds: int(s.repSeconds, 2, 6, 3),
     };
