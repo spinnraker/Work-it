@@ -165,10 +165,6 @@
 
   function figure(levels, view) { return window.Figure.svg(levels, view); }
 
-  /** Thumbnail for an exercise: a close-up of the muscles it works. */
-  function glyph(muscles, cls = '') {
-    return `<span class="thumb ${cls}">${window.Figure.thumb(muscles)}</span>`;
-  }
 
   // ---------- cues: voice, tones, vibration, screen ----------
 
@@ -524,7 +520,7 @@
       ? `<div class="s-head"><div><div class="s-name">Timed intervals</div><div class="s-meta">${plural(step.rounds, 'round')}</div></div></div>
          <ul class="s-list">${R.flat.filter((f) => f.section === 'block' && f.block === step.block)
           .map((f) => `<li>${esc(f.item.name)}${f.item.weight ? ` · ${E.lb(f.item.weight)}` : ''} · ${E.clock(f.item.seconds)}</li>`).join('')}</ul>`
-      : `<div class="s-head">${glyph(it.muscles)}<div>
+      : `<div class="s-head"><div>
           <div class="s-name">${esc(it.name)}</div>
           <div class="s-meta">${[it.weight ? E.lb(it.weight) : '', it.kind === 'dynamic' ? `${it.reps} reps` : '', it.muscles.map((m) => E.MUSCLES[m].name).join(', ')].filter(Boolean).map(esc).join(' · ')}</div>
         </div></div>
@@ -640,7 +636,6 @@
       ? `<button class="trend" data-action="trend" ${at} aria-label="${it.trend === 'up' ? 'Go up' : 'Go down'}: ${esc(trendText(it))}">${it.trend === 'up' ? ICON.up : ICON.down}</button>`
       : '';
     return `<div class="ex">
-      <button class="thumb-btn" data-action="item" ${at} tabindex="-1" aria-hidden="true">${glyph(it.muscles)}</button>
       <button class="ex-body" data-action="item" ${at}><b>${esc(it.name)}</b><span>${esc(E.describe(it, rounds))}</span></button>
       ${trend}
       ${moreBtn(`data-action="item" ${at}`, `Edit ${it.name}`)}
@@ -699,7 +694,7 @@
       const r = rep[m];
       const days = inPlan(m).map((id) => state.days[id].name.replace(/ Day$/, '')).join(', ');
       const sub = r.last ? `Last ${r.last === t ? 'today' : shortDate(r.last)}${days ? ` · ${days}` : ''}` : `Not worked yet${days ? ` · ${days}` : ''}`;
-      return `<div class="mrow">${glyph([m], 'small')}<div><b>${esc(r.name)}</b><span>${esc(sub)}</span></div>
+      return `<div class="mrow"><div><b>${esc(r.name)}</b><span>${esc(sub)}</span></div>
         <em class="${r.week ? '' : 'zero'}">${r.week ? `${r.week}×` : '—'}</em></div>`;
     }).join('');
     const worked = E.MUSCLE_IDS.filter((m) => rep[m].week).length;
@@ -952,7 +947,7 @@
     const rated = s.results.filter((r) => r.section === 'block' && r.done > 0);
     const intervals = s.results.filter((r) => r.section === 'block').reduce((a, r) => a + r.done, 0);
     const rows = rated.map((r, i) => `<div class="rate">
-        <div class="rate-head">${glyph(r.muscles, 'small')}<div><b>${esc(r.name)}</b><span>${r.weight ? esc(E.lb(r.weight)) : 'Bodyweight'} · ${r.done} of ${r.target}</span></div></div>
+        <div class="rate-head"><div><b>${esc(r.name)}</b><span>${r.weight ? esc(E.lb(r.weight)) : 'Bodyweight'} · ${r.done} of ${r.target}</span></div></div>
         ${seg(`rate-${i}`, x.ratings[r.id] || '', [['easy', 'Too easy'], ['right', 'Just right'], ['hard', 'Too hard']])}
       </div>`).join('');
     return `<div class="sheet-top"><button data-action="close">Skip</button><button class="done" data-action="save-review">Save</button></div>

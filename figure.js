@@ -3,7 +3,7 @@
  *
  * Shapes are drawn for the left half of the body as point lists and mirrored,
  * then smoothed into curves, so both sides always match. Every muscle group is
- * outlined; the ones passed in are filled.
+ * outlined; the ones passed in are filled. Used by the Body tab.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -91,7 +91,6 @@
 
   const SIDE = {};
   for (const v of ['front', 'back']) for (const id of Object.keys(VIEW[v].on)) SIDE[id] = v;
-  const LOWER = new Set(['quads', 'abductors', 'glutes', 'hamstrings', 'calves']);
 
   /**
    * levels: { muscleId: 'on' | 'was' }. box: viewBox string or 'auto' (crop to the lit muscles).
@@ -107,19 +106,5 @@
       + `<g class="m">${PATHS[view]._outline}</g>${parts}</svg>`;
   }
 
-  /** A square close-up for an exercise: the side and region that show its muscles. */
-  function thumb(muscles) {
-    const known = muscles.filter((m) => SIDE[m]);
-    const back = known.filter((m) => SIDE[m] === 'back').length;
-    const view = back > known.length - back ? 'back' : 'front';
-    const levels = {};
-    known.forEach((m) => { levels[m] = 'on'; });
-    const low = known.filter((m) => LOWER.has(m));
-    let box = '12 30 76 76'; // shoulders to hips
-    if (low.length && low.length === known.length) box = low.includes('calves') && low.length === 1 ? '16 128 68 68' : '14 92 72 72';
-    else if (low.length) box = '6 32 88 88';
-    return svg(levels, view, box);
-  }
-
-  return { svg, thumb, SIDE };
+  return { svg, SIDE };
 });
