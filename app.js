@@ -161,50 +161,13 @@
     input.click();
   }
 
-  // ---------- body diagram ----------
+  // ---------- body diagram (figure.js) ----------
 
-  const BODY = '<circle cx="30" cy="8" r="5.5"/><rect x="27" y="12.5" width="6" height="5" rx="1"/>'
-    + '<path d="M18 18Q30 15 42 18L41.5 40Q30 44 18.5 40Z"/>'
-    + '<path d="M18.5 18.5L14.5 20L11.5 36L9.5 50L12.5 50L15.5 37L18.5 28Z"/>'
-    + '<path d="M41.5 18.5L45.5 20L48.5 36L50.5 50L47.5 50L44.5 37L41.5 28Z"/>'
-    + '<path d="M19 40L29.5 42L28.5 58L27.5 70L22.5 70L21 58Z"/>'
-    + '<path d="M41 40L30.5 42L31.5 58L32.5 70L37.5 70L39 58Z"/>';
-  const pair = (dx, y, rx, ry) => `<ellipse cx="${30 - dx}" cy="${y}" rx="${rx}" ry="${ry}"/><ellipse cx="${30 + dx}" cy="${y}" rx="${rx}" ry="${ry}"/>`;
-  const SHAPES = {
-    shoulders: pair(13, 21, 3.6, 3),
-    chest: pair(5, 25, 4.6, 3.3),
-    biceps: pair(14.6, 29, 1.9, 4.8),
-    abs: '<rect x="26.5" y="29.5" width="7" height="10" rx="2.2"/>',
-    quads: pair(5.5, 50, 3.1, 7.5),
-    abductors: pair(9.2, 49, 1.3, 6),
-    lats: pair(7, 29, 3.8, 6.5),
-    triceps: pair(14.6, 28, 1.9, 4.8),
-    'lower-back': '<rect x="26.5" y="33" width="7" height="6.5" rx="1.5"/>',
-    glutes: pair(4.8, 44.5, 4.3, 3.8),
-    hamstrings: pair(5.3, 53, 3, 6.5),
-    calves: pair(5, 63, 2, 4.5),
-  };
+  function figure(levels, view) { return window.Figure.svg(levels, view); }
 
-  const LOWER = new Set(['quads', 'abductors', 'glutes', 'hamstrings', 'calves']);
-
-  /** Muscle diagram. `levels`: { muscleId: 'on' | 'was' }. `box`: SVG viewBox (crop). */
-  function figure(levels, view, box = '0 0 60 72') {
-    const shapes = Object.entries(levels)
-      .filter(([m]) => E.MUSCLES[m] && E.MUSCLES[m].view === view)
-      .map(([m, lv]) => `<g class="m ${lv === 'was' ? 'was' : ''}">${SHAPES[m]}</g>`).join('');
-    return `<svg class="fig" viewBox="${box}" aria-hidden="true"><g class="body">${BODY}</g>${shapes}</svg>`;
-  }
-
-  /** Thumbnail for an exercise: whichever side of the body shows its muscles, cropped to them. */
+  /** Thumbnail for an exercise: a close-up of the muscles it works. */
   function glyph(muscles, cls = '') {
-    const front = muscles.filter((m) => E.MUSCLES[m] && E.MUSCLES[m].view === 'front').length;
-    const back = muscles.length - front;
-    const levels = {};
-    muscles.forEach((m) => { levels[m] = 'on'; });
-    const low = muscles.filter((m) => LOWER.has(m)).length;
-    const box = !muscles.length || (low && low < muscles.length) ? '4 0 52 52'
-      : low ? '9 32 42 42' : '8 7 44 44';
-    return `<span class="thumb ${cls}">${figure(levels, back > front ? 'back' : 'front', box)}</span>`;
+    return `<span class="thumb ${cls}">${window.Figure.thumb(muscles)}</span>`;
   }
 
   // ---------- cues: voice, tones, vibration, screen ----------
@@ -747,7 +710,7 @@
         <figure>${figure(levels, 'front')}<figcaption>Front</figcaption></figure>
         <figure>${figure(levels, 'back')}<figcaption>Back</figcaption></figure>
       </div>
-      <div class="legend"><span><i style="background:var(--fg)"></i>This week</span><span><i style="background:var(--muted)"></i>Earlier</span><span><i style="background:var(--body)"></i>Not yet</span></div>
+      <div class="legend"><span><i style="background:var(--fg)"></i>This week</span><span><i style="background:var(--muted)"></i>Earlier</span><span><i style="background:var(--muscle)"></i>Not yet</span></div>
       <div class="section-label">Muscles · workouts this week</div>
       <div class="rows">${rows}</div>`;
   }

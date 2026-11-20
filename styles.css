@@ -4,7 +4,9 @@
   --muted: #6e6e73;
   --line: #e5e5ea;
   --faint: #f2f2f7;
-  --body: #d1d1d6;
+  --body: #c7c7cc;
+  --muscle: #d8d8dd;
+  --seam: #aeaeb2;
   --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
   color-scheme: light dark;
 }
@@ -17,6 +19,8 @@
     --line: #2c2c2e;
     --faint: #1c1c1e;
     --body: #3a3a3c;
+    --muscle: #4a4a4e;
+    --seam: #2a2a2c;
   }
 }
 
@@ -118,11 +122,12 @@ h1 { font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1
   flex: none; width: 56px; height: 56px; border-radius: 12px;
   background: var(--faint); display: grid; place-items: center; overflow: hidden;
 }
-.thumb svg { width: 100%; height: 100%; margin-top: 6px; }
+.thumb svg { width: 100%; height: 100%; display: block; }
 .thumb.small { width: 44px; height: 44px; border-radius: 10px; }
 
 .fig .body { fill: var(--body); }
-.fig .m { fill: var(--fg); }
+.fig .m { fill: var(--muscle); stroke: var(--seam); stroke-width: .9; stroke-linejoin: round; }
+.fig .m.on { fill: var(--fg); }
 .fig .m.was { fill: var(--muted); }
 
 .add-row { display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px 0; margin-top: 12px; border-top: 1px solid var(--line); font-weight: 600; }
@@ -262,7 +267,7 @@ textarea:focus { border-color: var(--fg); }
 
 .figures { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
 .figures figure { background: var(--faint); border-radius: 16px; padding: 16px 0 10px; text-align: center; }
-.figures svg { width: 70%; height: auto; }
+.figures svg { width: 80%; height: auto; display: inline-block; }
 .figures figcaption { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
 .legend { display: flex; gap: 16px; margin-top: 12px; font-size: 12px; color: var(--muted); }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }

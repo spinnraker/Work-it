@@ -71,4 +71,4 @@ Editing an exercise shows the weight you used last time.
 - Starting a workout snapshots the day and compiles it into a flat list of timed steps (intro → get ready → work → rest …). `app.js` walks that list with a wall-clock timer, so pause, back and resume-after-reload stay accurate. Editing a day only changes future workouts.
 - State is saved to `localStorage` (`workit:v1`). Saved and imported data is validated on load. Anything that can't be read is set aside under a `workit:v1:unreadable:*` key instead of being overwritten.
 - `sw.js` caches the app for offline use. Bump `CACHE` when you ship changes.
-- Exercise thumbnails are simple muscle diagrams drawn in SVG; there are no photos.
+- `figure.js` draws the muscle map (front and back) in SVG: each muscle group is outlined and the ones an exercise works are filled. Thumbnails crop it to the torso or legs. There are no photos.
