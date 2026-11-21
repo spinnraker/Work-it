@@ -65,7 +65,7 @@
   function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
   function plural(n, word) { return `${n} ${word}${n === 1 ? '' : 's'}`; }
   function day() { return state.days[state.current]; }
-  function other(id) { return id === 'upper' ? 'lower' : 'upper'; }
+  function routines() { return state.order.map((id) => state.days[id]).filter(Boolean); }
 
   function longDate(key) {
     return E.fromKey(key).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
@@ -467,7 +467,7 @@
     }
     const rec = record(a, status, sum, durationSec);
     state.sessions.push(rec);
-    if (status === 'completed') state.current = other(a.snapshot.id);
+    if (status === 'completed' && state.days[a.snapshot.id]) state.current = E.nextInOrder(state.order, a.snapshot.id);
     save();
     render();
     openSheet({ type: 'review', id: rec.id, draft: { ratings: {}, note: '' }, fresh: true });
@@ -685,8 +685,8 @@
       </div>`).join('');
     return `<div class="date">${esc(longDate(t))}</div>
       <div class="day-head"><h1>${esc(d.name)}</h1>
-        <button class="pill" data-action="switch">${ICON.swap}Switch</button></div>
-      <p class="day-sub">${plural(st.exercises, 'exercise')} · ${plural(st.muscles, 'muscle')}</p>
+        <button class="pill" data-action="switch">${ICON.swap}${state.order.length > 2 ? 'Routines' : 'Switch'}</button></div>
+      <p class="day-sub">${st.exercises ? `${plural(st.exercises, 'exercise')} · ${plural(st.muscles, 'muscle')}` : 'Empty. Tap Add exercise to fill it from the library.'}</p>
       ${a && a.snapshot.id !== d.id ? `<div class="banner"><span><b>${esc(a.snapshot.name)}</b> is in progress</span><button class="btn small" data-action="start">Resume</button></div>` : ''}
       ${stretchSection('warmup')}
       <section class="sec">${blocks}</section>
@@ -701,7 +701,7 @@
       if (rep[m].week) levels[m] = 'on';
       else if (rep[m].last) levels[m] = 'was';
     }
-    const inPlan = (m) => ['upper', 'lower'].filter((id) => E.dayStats(state.days[id]).muscleIds.includes(m));
+    const inPlan = (m) => state.order.filter((id) => E.dayStats(state.days[id]).muscleIds.includes(m));
     const ids = E.MUSCLE_IDS.filter((m) => rep[m].last || inPlan(m).length);
     ids.sort((x, y) => rep[y].week - rep[x].week || (rep[y].last || '').localeCompare(rep[x].last || ''));
     const rows = ids.map((m) => {
@@ -811,6 +811,9 @@
       library: librarySheet,
       session: sessionSheet,
       settings: settingsSheet,
+      routines: routinesSheet,
+      routine: routineSheet,
+      'new-routine': newRoutineSheet,
     }[sheet.type]();
     sheetEl.innerHTML = `<div class="sheet-inner">${html}</div>`;
   }
@@ -1068,7 +1071,7 @@
     const s = state.sessions.find((x) => x.id === sheet.id);
     if (!s) { closeSheet(); return; }
     const d = state.days[s.dayId];
-    const all = [...d.blocks.flatMap((b) => b.items)];
+    const all = d ? d.blocks.flatMap((b) => b.items) : [];
     for (const r of s.results) {
       const rating = sheet.draft.ratings[r.id];
       if (!rating || r.section !== 'block') continue;
@@ -1118,6 +1121,72 @@
       </div>`;
   }
 
+  // ----- routines -----
+
+  function routineSub(d) {
+    const st = E.dayStats(d);
+    const sec = E.estimateSeconds(E.buildPlan(d, { repSeconds: state.settings.repSeconds }));
+    return st.exercises ? `${plural(st.exercises, 'exercise')} · ${plural(st.muscles, 'muscle')} · ≈ ${minutes(sec)}` : 'No exercises yet';
+  }
+
+  function routinesSheet() {
+    const list = routines();
+    const rows = list.map((d, k) => {
+      const on = d.id === state.current;
+      return `<div class="routine-row ${on ? 'on' : ''}">
+        <button class="routine-pick" data-action="pick-routine" data-id="${esc(d.id)}" aria-pressed="${on}">
+          <i aria-hidden="true">${k + 1}</i>
+          <span><b>${esc(d.name)}</b><small>${esc(routineSub(d))}</small></span>
+        </button>
+        ${moreBtn(`data-action="routine" data-id="${esc(d.id)}"`, `Edit ${d.name}`)}
+      </div>`;
+    }).join('');
+    return `<div class="sheet-top"><span></span><button class="done" data-action="close">Done</button></div>
+      <h1 id="sheet-title" class="detail-name" tabindex="-1">Routines</h1>
+      <p class="lead">Tap one to do it now. After you finish a workout, the next one in this list comes up.</p>
+      <div class="rows routines">${rows}</div>
+      <div class="form-actions"><button class="btn block" data-action="new-routine">New routine</button></div>`;
+  }
+
+  function routineSheet() {
+    const d = state.days[sheet.id];
+    if (!d) return '';
+    const k = state.order.indexOf(d.id);
+    const n = state.order.length;
+    return `<div class="sheet-top"><button data-action="close">Cancel</button>
+        <button class="done" data-action="save-routine" data-needs-name ${sheet.draft.name.trim() ? '' : 'disabled'}>Save</button></div>
+      <h1 id="sheet-title" class="detail-name" tabindex="-1">${esc(d.name)}</h1>
+      <p class="lead">${esc(routineSub(d))}</p>
+      <label class="field"><span>Name</span><input type="text" data-field="name" value="${esc(sheet.draft.name)}" maxlength="60" autocomplete="off"></label>
+      <div class="field"><span>Place in rotation</span>${stepperLike(k, n)}</div>
+      <div class="form-actions"><button class="btn ghost block" data-action="routine-copy">Duplicate</button></div>
+      <div class="detail-actions">
+        ${E.SEED_DAYS[d.id] ? '<button class="link" data-action="routine-reset">Reset to original</button>' : ''}
+        <button class="link danger" data-action="routine-delete" ${n < 2 ? 'disabled' : ''}>Delete routine</button>
+      </div>
+      ${n < 2 ? '<p class="hint">You need at least one routine.</p>' : ''}`;
+  }
+
+  function stepperLike(k, n) {
+    return `<div class="stepper">
+      <button data-action="routine-move" data-delta="-1" aria-label="Earlier" ${k <= 0 ? 'disabled' : ''}>↑</button>
+      <output>${k + 1} of ${n}</output>
+      <button data-action="routine-move" data-delta="1" aria-label="Later" ${k >= n - 1 ? 'disabled' : ''}>↓</button>
+    </div>`;
+  }
+
+  function newRoutineSheet() {
+    const x = sheet.draft;
+    const chip = (v, label) => `<button class="chip" data-action="routine-from" data-value="${esc(v)}" aria-pressed="${x.from === v}">${esc(label)}</button>`;
+    return `<div class="sheet-top"><button data-action="close">Cancel</button>
+        <button class="done" data-action="create-routine" data-needs-name ${x.name.trim() ? '' : 'disabled'}>Create</button></div>
+      <h1 id="sheet-title" class="detail-name" tabindex="-1">New routine</h1>
+      <label class="field"><span>Name</span><input type="text" data-field="name" value="${esc(x.name)}" placeholder="e.g. Full Body" maxlength="60" autocomplete="off"></label>
+      <div class="field"><span>Start from</span>
+        <div class="chips">${chip('', 'Blank')}${routines().map((d) => chip(d.id, `Copy of ${d.name}`)).join('')}</div>
+        <p class="hint">${x.from ? 'Starts with the same warm-up, blocks and cool-down. Change anything after.' : 'Starts with one empty block. Add exercises from the library.'}</p></div>`;
+  }
+
   // ----- settings -----
 
   function settingsSheet() {
@@ -1132,7 +1201,6 @@
       <div class="rows">
         <button class="row-btn" data-action="export">Export backup <span>JSON</span></button>
         <button class="row-btn" data-action="import">Import backup <span>Replaces data</span></button>
-        <button class="row-btn" data-action="reset-day">Reset ${esc(day().name)} <span>Back to the original</span></button>
       </div>
       <p class="hint" style="margin-top:20px">Everything stays on this device. No account.</p>`;
   }
@@ -1228,15 +1296,93 @@
         beginSession();
         break;
       case 'switch':
-        state.current = other(state.current);
-        save();
-        render();
+        openSheet({ type: 'routines' });
         break;
+      case 'pick-routine':
+        if (!state.days[ds.id]) break;
+        state.current = ds.id;
+        save();
+        closeSheet();
+        window.scrollTo(0, 0);
+        break;
+      case 'routine': {
+        const d = state.days[ds.id];
+        if (d) openSheet({ type: 'routine', id: d.id, draft: { name: d.name } });
+        break;
+      }
+      case 'new-routine':
+        openSheet({ type: 'new-routine', draft: { name: '', from: '' } });
+        break;
+      case 'routine-from':
+        sheet.draft.from = ds.value;
+        renderSheet();
+        break;
+      case 'create-routine': {
+        const from = sheet.draft.from ? state.days[sheet.draft.from] : null;
+        const r = E.newRoutine(sheet.draft.name, from, state.days);
+        state.days[r.id] = r;
+        state.order.push(r.id);
+        state.current = r.id;
+        save();
+        closeSheet();
+        window.scrollTo(0, 0);
+        toast(from ? `${r.name} created` : `${r.name} created · add exercises`);
+        break;
+      }
+      case 'save-routine': {
+        const d = state.days[sheet.id];
+        const name = sheet.draft.name.trim().slice(0, 60);
+        if (d && name) d.name = name;
+        save();
+        openSheet({ type: 'routines' });
+        break;
+      }
+      case 'routine-copy': {
+        const d = state.days[sheet.id];
+        const r = E.newRoutine(`${d.name} copy`, d, state.days);
+        state.days[r.id] = r;
+        state.order.splice(state.order.indexOf(d.id) + 1, 0, r.id);
+        save();
+        openSheet({ type: 'routine', id: r.id, draft: { name: r.name } });
+        toast('Copied · rename it here');
+        break;
+      }
+      case 'routine-move': {
+        const k = state.order.indexOf(sheet.id);
+        const j = k + Number(ds.delta);
+        if (k === -1 || j < 0 || j >= state.order.length) break;
+        [state.order[k], state.order[j]] = [state.order[j], state.order[k]];
+        save();
+        renderSheet();
+        break;
+      }
+      case 'routine-reset': {
+        const d = state.days[sheet.id];
+        if (!E.SEED_DAYS[d.id] || !confirm(`Reset ${d.name} to the original exercises? Your log is kept.`)) break;
+        state.days[d.id] = JSON.parse(JSON.stringify(E.SEED_DAYS[d.id]));
+        save();
+        openSheet({ type: 'routines' });
+        toast(`${state.days[d.id].name} reset`);
+        break;
+      }
+      case 'routine-delete': {
+        const d = state.days[sheet.id];
+        if (state.order.length < 2) break;
+        if (!confirm(`Delete ${d.name}? Past workouts stay in your log.`)) break;
+        delete state.days[d.id];
+        state.order = state.order.filter((id) => id !== d.id);
+        if (state.current === d.id) state.current = state.order[0];
+        save();
+        openSheet({ type: 'routines' });
+        toast(`${d.name} deleted`);
+        break;
+      }
       case 'settings':
         openSheet({ type: 'settings' });
         break;
       case 'close':
         if (sheet && sheet.type === 'review' && !sheet.fresh) openSheet({ type: 'session', id: sheet.id });
+        else if (sheet && (sheet.type === 'routine' || sheet.type === 'new-routine')) openSheet({ type: 'routines' });
         else closeSheet();
         break;
 
@@ -1421,15 +1567,6 @@
       case 'import':
         importData();
         break;
-      case 'reset-day': {
-        const d = day();
-        if (!confirm(`Reset ${d.name} to the original exercises? Your log is kept.`)) break;
-        state.days[d.id] = JSON.parse(JSON.stringify(E.SEED_DAYS[d.id]));
-        save();
-        closeSheet();
-        toast(`${d.name} reset`);
-        break;
-      }
     }
   }
 
@@ -1448,7 +1585,7 @@
     }
     if (!sheet || !sheet.draft || !el.dataset.field) return;
     sheet.draft[el.dataset.field] = el.value;
-    const done = sheetEl.querySelector('[data-action="save-item"]');
+    const done = sheetEl.querySelector('[data-action="save-item"], [data-needs-name]');
     if (done && el.dataset.field === 'name') done.disabled = !el.value.trim();
   });
 

@@ -11,7 +11,7 @@ npm test           # engine tests
 
 No dependencies and no build step. To put it on your iPhone, host the folder on any static host (GitHub Pages works: Settings → Pages → deploy from this branch), open it in Safari, then Share → Add to Home Screen. It runs full-screen and offline. Data stays on the device; use ⋯ → Export backup to keep a copy.
 
-## The two days
+## The starting routines
 
 **Upper Body Day**: 14 exercises · 7 muscles
 
@@ -32,7 +32,18 @@ No dependencies and no build step. To put it on your iPhone, host the folder on 
 | Timed intervals · 3 rounds | TRX Squat · Plank · Cat Cow (0:45 each) |
 | Cool-down | Standing Quad Stretch · Figure-Four Stretch · Seated Hip Cross-Over · Knees to Chest |
 
-The cool-down stretches target the muscles that day works, so they don't add to the muscle count. **Switch** flips between the days. Finishing a workout sets up the other day for next time.
+The cool-down stretches target the muscles that day works, so they don't add to the muscle count.
+
+## Your own routines
+
+Upper and Lower are just the two routines you start with. Tap **Switch** (it reads **Routines** once you have more than two) to see them all:
+
+- **Tap a routine** to do it now.
+- **New routine**: name it ("Full Body", "Arms & Abs", "Hotel TRX") and start blank (one empty block, fill it from the library) or as a copy of any routine you have.
+- **⋯ on a routine**: rename, move it earlier or later in the rotation, duplicate, reset (Upper and Lower only) or delete. You always keep at least one.
+- **Rotation**: finishing a workout brings up the next routine in the list, wrapping around (Upper → Lower → Full Body → Upper …). Ending early doesn't move it on.
+
+Each routine has its own warm-up, blocks, cool-down, weights and ↑/↓ arrows. The log, Body tab and streak count every routine. Deleting a routine keeps its past workouts in the log.
 
 ## The workout
 

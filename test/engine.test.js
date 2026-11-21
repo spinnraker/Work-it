@@ -118,14 +118,62 @@ test('progression: next dumbbell up or down, or more time for bodyweight', () =>
   assert.equal(E.trendFor('right'), null);
 });
 
-test('next day alternates after a completed workout', () => {
-  assert.equal(E.nextDay([], 'upper'), 'upper');
-  assert.equal(E.nextDay([{ status: 'completed', dayId: 'upper', startedAt: 1 }], 'upper'), 'lower');
+test('the next routine follows the rotation after a completed workout', () => {
+  const order = ['upper', 'lower', 'full'];
+  assert.equal(E.nextDay([], order, 'upper'), 'upper');
+  assert.equal(E.nextDay([{ status: 'completed', dayId: 'upper', startedAt: 1 }], order, 'upper'), 'lower');
+  assert.equal(E.nextDay([{ status: 'completed', dayId: 'full', startedAt: 1 }], order, 'lower'), 'upper');
   assert.equal(E.nextDay([
     { status: 'completed', dayId: 'upper', startedAt: 1 },
     { status: 'completed', dayId: 'lower', startedAt: 2 },
     { status: 'ended', dayId: 'upper', startedAt: 3 },
-  ], 'upper'), 'upper');
+  ], order, 'upper'), 'full');
+  // A deleted routine falls back.
+  assert.equal(E.nextDay([{ status: 'completed', dayId: 'gone', startedAt: 1 }], order, 'lower'), 'lower');
+  assert.equal(E.nextInOrder(['a'], 'a'), 'a');
+});
+
+test('new routines: blank or a copy with fresh ids', () => {
+  const blank = E.newRoutine('  Arms & Abs ', null, {});
+  assert.equal(blank.name, 'Arms & Abs');
+  assert.equal(blank.blocks.length, 1);
+  assert.equal(E.buildPlan(blank).length, 0);
+  assert.equal(E.newRoutine('', null).name, 'New routine');
+  const src = clone(E.SEED_DAYS.upper);
+  src.blocks[0].items[1].trend = 'up';
+  const copy = E.newRoutine('Upper 2', src, {});
+  assert.notEqual(copy.id, src.id);
+  assert.equal(E.flatten(copy).length, E.flatten(src).length);
+  const ids = (d) => E.flatten(d, { all: true }).map((f) => f.item.id);
+  assert.ok(ids(copy).every((id) => !ids(src).includes(id)));
+  assert.equal(copy.blocks[0].items[1].trend, null);
+  assert.equal(src.blocks[0].items[1].trend, 'up');
+});
+
+test('normalize keeps custom routines and their order, and migrates old data', () => {
+  const s = E.freshState();
+  const full = E.newRoutine('Full Body', null, s.days);
+  s.days[full.id] = full;
+  s.order = [full.id, 'upper', 'lower'];
+  s.current = full.id;
+  const { state } = E.normalize(clone(s));
+  assert.deepEqual(state.order, [full.id, 'upper', 'lower']);
+  assert.equal(state.days[full.id].name, 'Full Body');
+  assert.equal(state.current, full.id);
+  // Data saved before routines existed: no order, upper/lower only.
+  const old = clone(E.freshState());
+  delete old.order;
+  old.current = 'lower';
+  const m = E.normalize(old).state;
+  assert.deepEqual(m.order, ['upper', 'lower']);
+  assert.equal(m.current, 'lower');
+  // Bad ids are dropped; a missing current falls back to the first routine.
+  const bad = clone(E.freshState());
+  bad.days['no spaces!'] = full;
+  bad.current = 'nope';
+  const b = E.normalize(bad);
+  assert.equal(b.dropped, 1);
+  assert.equal(b.state.current, 'upper');
 });
 
 test('muscle report and week streak come from history', () => {

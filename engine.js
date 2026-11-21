@@ -335,6 +335,7 @@
   function freshState() {
     return {
       days: JSON.parse(JSON.stringify(SEED_DAYS)),
+      order: Object.keys(SEED_DAYS), // routines in rotation order
       current: 'upper',
       settings: defaultSettings(),
       sessions: [],
@@ -402,11 +403,14 @@
     };
   }
 
-  function cleanDay(d, fallback, counter) {
-    if (!d || typeof d !== 'object') { counter.n++; return JSON.parse(JSON.stringify(fallback)); }
+  const isId = (v) => typeof v === 'string' && /^[\w-]{1,40}$/.test(v);
+
+  /** A routine. `id` is its key; `fallbackName` is used if the name is missing. */
+  function cleanDay(d, id, counter, fallbackName = 'Routine') {
+    if (!d || typeof d !== 'object') { counter.n++; return null; }
     return {
-      id: fallback.id,
-      name: str(d.name).trim().slice(0, 60) || fallback.name,
+      id,
+      name: str(d.name).trim().slice(0, 60) || fallbackName,
       warmupOn: d.warmupOn !== false,
       cooldownOn: d.cooldownOn !== false,
       warmup: cleanStretches(d.warmup, counter),
@@ -435,11 +439,19 @@
     const base = freshState();
     if (!raw || typeof raw !== 'object') return { state: base, dropped: 1 };
     const counter = { n: 0 };
-    const rawDays = raw.days && typeof raw.days === 'object' ? raw.days : {};
-    const days = {
-      upper: rawDays.upper ? cleanDay(rawDays.upper, SEED_DAYS.upper, counter) : base.days.upper,
-      lower: rawDays.lower ? cleanDay(rawDays.lower, SEED_DAYS.lower, counter) : base.days.lower,
-    };
+    const rawDays = raw.days && typeof raw.days === 'object' && !Array.isArray(raw.days) ? raw.days : null;
+    let days = {};
+    if (rawDays) {
+      for (const [id, d] of Object.entries(rawDays)) {
+        if (!isId(id)) { counter.n++; continue; }
+        const clean = cleanDay(d, id, counter, SEED_DAYS[id] ? SEED_DAYS[id].name : 'Routine');
+        if (clean) days[id] = clean;
+      }
+    }
+    if (!Object.keys(days).length) days = base.days;
+    // Rotation order: the saved order first, then any routine it's missing.
+    const order = (Array.isArray(raw.order) ? raw.order : []).filter((id, k, a) => days[id] && a.indexOf(id) === k);
+    for (const id of Object.keys(days)) if (!order.includes(id)) order.push(id);
     const s = raw.settings && typeof raw.settings === 'object' ? raw.settings : {};
     const settings = {
       tones: s.tones !== false,
@@ -451,8 +463,8 @@
       sessions.push({
         id: str(x.id) || `s-${rid()}`,
         date: x.date,
-        dayId: x.dayId === 'lower' ? 'lower' : 'upper',
-        dayName: str(x.dayName) || (x.dayId === 'lower' ? 'Lower Body Day' : 'Upper Body Day'),
+        dayId: isId(x.dayId) ? x.dayId : 'upper',
+        dayName: str(x.dayName) || (SEED_DAYS[x.dayId] ? SEED_DAYS[x.dayId].name : 'Workout'),
         startedAt: Number(x.startedAt) || 0,
         endedAt: Number(x.endedAt) || 0,
         durationSec: int(x.durationSec, 0, 86400, 0),
@@ -466,13 +478,13 @@
     let active = null;
     const a = raw.active;
     if (a && typeof a === 'object' && isKey(a.date) && a.snapshot && typeof a.snapshot === 'object') {
-      const id = a.snapshot.id === 'lower' ? 'lower' : 'upper';
+      const id = isId(a.snapshot.id) ? a.snapshot.id : 'upper';
       const c2 = { n: 0 };
       active = {
         id: str(a.id) || `s-${rid()}`,
         date: a.date,
         startedAt: Number(a.startedAt) || Date.now(),
-        snapshot: cleanDay(a.snapshot, SEED_DAYS[id], c2),
+        snapshot: cleanDay(a.snapshot, id, c2, 'Workout'),
         repSeconds: int(a.repSeconds, 2, 6, 3),
         stepIndex: int(a.stepIndex, 0, 100000, 0),
         done: Array.isArray(a.done) ? a.done.filter(Number.isInteger) : [],
@@ -480,7 +492,7 @@
       };
     }
     return {
-      state: { days, current: raw.current === 'lower' ? 'lower' : 'upper', settings, sessions, active },
+      state: { days, order, current: days[raw.current] ? raw.current : order[0], settings, sessions, active },
       dropped: counter.n,
     };
   }
@@ -660,10 +672,49 @@
   }
 
   /** Which day to suggest next: the other one from the last completed workout. */
-  function nextDay(sessions, fallback) {
+  /** The routine after `id` in the rotation, wrapping around. */
+  function nextInOrder(order, id) {
+    const k = order.indexOf(id);
+    return k === -1 ? order[0] : order[(k + 1) % order.length];
+  }
+
+  /** Which routine to suggest next: the one after the last completed workout's. */
+  function nextDay(sessions, order, fallback) {
     const last = sessions.filter((s) => s.status === 'completed').sort((a, b) => b.startedAt - a.startedAt)[0];
-    if (!last) return fallback;
-    return last.dayId === 'upper' ? 'lower' : 'upper';
+    if (!last || !order.includes(last.dayId)) return fallback;
+    return nextInOrder(order, last.dayId);
+  }
+
+  // ---------- routines ----------
+
+  function newId(prefix, taken) {
+    let id;
+    do id = `${prefix}-${rid()}`; while (taken && taken[id]);
+    return id;
+  }
+
+  /**
+   * A new routine: blank (one empty block, warm-up and cool-down ready to fill)
+   * or a copy of `from` with fresh ids, so history and ratings stay separate.
+   */
+  function newRoutine(name, from, taken) {
+    const id = newId('r', taken);
+    const clean = String(name || '').trim().slice(0, 60) || 'New routine';
+    if (from) {
+      const copy = JSON.parse(JSON.stringify(from));
+      copy.id = id;
+      copy.name = clean;
+      copy.blocks.forEach((b) => { b.id = newId('b'); });
+      for (const it of [...copy.warmup, ...copy.blocks.flatMap((b) => b.items), ...copy.cooldown]) {
+        it.id = newId('x');
+        it.trend = null;
+      }
+      return copy;
+    }
+    return {
+      id, name: clean, warmupOn: true, cooldownOn: true,
+      warmup: [], blocks: [{ id: newId('b'), rounds: 3, rest: 15, roundRest: 30, items: [] }], cooldown: [],
+    };
   }
 
   // ---------- history ----------
@@ -733,7 +784,7 @@
     MUSCLES, MUSCLE_IDS, SEED_DAYS, library, EQUIPMENT, filterLibrary, fromLibrary, defaultSettings, freshState, normalize, cleanItem, cleanWeight,
     clock, lb, describe, flatten, dayStats,
     INTRO_SECONDS, READY_SECONDS, buildPlan, workTargets, workDone, backTarget, estimateSeconds, sectionSeconds, summarize,
-    weightStep, progress, trendFor, nextDay,
+    weightStep, progress, trendFor, nextDay, nextInOrder, newRoutine,
     workoutDays, weekStreak, weekCount, muscleReport, lastWeight,
   };
 });

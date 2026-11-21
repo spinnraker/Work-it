@@ -1,5 +1,5 @@
 // Offline support: serve the app shell from cache, refresh it in the background.
-const CACHE = 'workit-v6';
+const CACHE = 'workit-v7';
 const FILES = [
   './',
   'index.html',

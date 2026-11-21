@@ -363,3 +363,13 @@ textarea:focus { border-color: var(--fg); }
 .lib-row i { flex: none; min-width: 36px; height: 32px; padding: 0 10px; border-radius: 16px; border: 1.5px solid var(--fg); display: grid; place-items: center; font-style: normal; font-size: 14px; font-weight: 600; }
 .lib-row:disabled i { border-color: var(--line); color: var(--muted); }
 .lib-row:disabled b { color: var(--muted); }
+
+/* ---------- routines ---------- */
+
+.routine-row { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--line); }
+.routine-pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 14px 0; text-align: left; }
+.routine-pick i { flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1.5px solid var(--line); display: grid; place-items: center; font-style: normal; font-size: 14px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
+.routine-row.on .routine-pick i { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.routine-pick span { min-width: 0; }
+.routine-pick b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.routine-pick small { display: block; font-size: 14px; color: var(--muted); margin-top: 2px; }
