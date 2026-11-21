@@ -77,7 +77,7 @@ test('turning the warm-up or cool-down off removes it from the plan', () => {
 });
 
 test('a 30-minute day lands near 30 minutes', () => {
-  for (const id of ['upper', 'lower']) {
+  for (const id of ['upper', 'lower', 'conditioning']) {
     const min = E.estimateSeconds(E.buildPlan(E.SEED_DAYS[id])) / 60;
     assert.ok(min > 20 && min < 40, `${id}: ${min}`);
   }
@@ -154,18 +154,21 @@ test('normalize keeps custom routines and their order, and migrates old data', (
   const s = E.freshState();
   const full = E.newRoutine('Full Body', null, s.days);
   s.days[full.id] = full;
-  s.order = [full.id, 'upper', 'lower'];
+  s.order = [full.id, 'upper', 'lower', 'conditioning'];
   s.current = full.id;
   const { state } = E.normalize(clone(s));
-  assert.deepEqual(state.order, [full.id, 'upper', 'lower']);
+  assert.deepEqual(state.order, [full.id, 'upper', 'lower', 'conditioning']);
   assert.equal(state.days[full.id].name, 'Full Body');
   assert.equal(state.current, full.id);
   // Data saved before routines existed: no order, upper/lower only.
   const old = clone(E.freshState());
   delete old.order;
+  delete old.seedVersion;
+  delete old.days.conditioning;
   old.current = 'lower';
   const m = E.normalize(old).state;
-  assert.deepEqual(m.order, ['upper', 'lower']);
+  assert.deepEqual(m.order, ['upper', 'lower', 'conditioning']); // new built-in added once
+  assert.equal(m.seedVersion, E.SEED_VERSION);
   assert.equal(m.current, 'lower');
   // Bad ids are dropped; a missing current falls back to the first routine.
   const bad = clone(E.freshState());
@@ -213,7 +216,9 @@ test('library has every built-in exercise once, tagged by equipment', () => {
   const names = lib.map((x) => x.name);
   assert.equal(new Set(names).size, names.length);
   for (const d of Object.values(E.SEED_DAYS)) {
-    for (const it of [...d.warmup, ...d.blocks.flatMap((b) => b.items), ...d.cooldown]) assert.ok(names.includes(it.name), it.name);
+    for (const it of [...d.warmup, ...d.blocks.flatMap((b) => b.items), ...d.cooldown]) {
+      if (it.library !== false) assert.ok(names.includes(it.name), it.name);
+    }
   }
   const count = (eq) => lib.filter((x) => x.equipment === eq).length;
   assert.ok(count('trx') >= 20);
@@ -267,4 +272,36 @@ test('reordering: move an item, and where a dragged row lands', () => {
   assert.equal(E.dropIndex(mids, 3, 249), 2);
   assert.equal(E.dropIndex(mids, 3, -50), 0);  // dragged to the top
   assert.equal(E.dropIndex(mids, 1, 150), 1);
+});
+
+test('the Conditioning routine: named one-round blocks, about 30 minutes', () => {
+  const d = E.SEED_DAYS.conditioning;
+  assert.deepEqual(d.blocks.map((b) => b.name), ['Warm-up', 'Run', 'Conditioning', 'Strength']);
+  assert.ok(d.blocks.every((b) => b.rounds === 1));
+  assert.equal(d.cooldown.length, 4);
+  const min = E.estimateSeconds(E.buildPlan(d)) / 60;
+  assert.ok(min > 28 && min < 32, String(min));
+  const run = d.blocks[1].items[0];
+  assert.equal(E.describe(run, 1), '7:00');
+  // The AMRAP isn't offered in the library; the kettlebell moves are.
+  const lib = E.library();
+  assert.ok(!lib.some((x) => x.name.startsWith('AMRAP')));
+  assert.equal(lib.find((x) => x.name === 'Russian KB Swing').equipment, 'kettlebell');
+  // Deleting it sticks: data already at this seed version doesn't get it back.
+  const s = clone(E.freshState());
+  delete s.days.conditioning;
+  s.order = ['upper', 'lower'];
+  assert.deepEqual(E.normalize(s).state.order, ['upper', 'lower']);
+  // Block names survive a save.
+  assert.equal(E.normalize(clone(E.freshState())).state.days.conditioning.blocks[1].name, 'Run');
+});
+
+test('interval lengths step finer when short, coarser when long', () => {
+  assert.equal(E.stepSeconds(45, 1), 50);
+  assert.equal(E.stepSeconds(120, 1), 135);
+  assert.equal(E.stepSeconds(120, -1), 115);
+  assert.equal(E.stepSeconds(300, 1), 330);
+  assert.equal(E.stepSeconds(300, -1), 285);
+  assert.equal(E.stepSeconds(600, 1), 600);
+  assert.equal(E.stepSeconds(15, -1), 15);
 });

@@ -66,6 +66,12 @@
   function uid() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); }
   function plural(n, word) { return `${n} ${word}${n === 1 ? '' : 's'}`; }
   function day() { return state.days[state.current]; }
+  /** "Strength", or "Timed intervals" for a block without a name. */
+  function blockTitle(b) { return (b && b.name) || 'Timed intervals'; }
+
+  /** Block header: "Strength · 3 rounds", "Run" (one round), "Timed intervals · 3 rounds". */
+  function blockLabel(b) { return b.rounds > 1 ? `${blockTitle(b)} · ${plural(b.rounds, 'round')}` : blockTitle(b); }
+
   function routines() { return state.order.map((id) => state.days[id]).filter(Boolean); }
 
   function longDate(key) {
@@ -510,7 +516,11 @@
   // ---------- workout rendering ----------
 
   function where(step) {
-    if (step.section === 'block') return `Block ${step.block + 1} · Round ${step.round} of ${step.rounds}`;
+    if (step.section === 'block') {
+      const bl = state.active.snapshot.blocks[step.block];
+      const title = bl && bl.name ? bl.name : `Block ${step.block + 1}`;
+      return step.rounds > 1 ? `${title} · Round ${step.round} of ${step.rounds}` : title;
+    }
     const n = R.flat.filter((f) => f.section === step.section);
     const k = n.findIndex((f) => f.item === itemOf(step));
     return `${SEC_NAME[step.section]} · ${k + 1} of ${n.length}`;
@@ -532,7 +542,7 @@
     const phase = isWork ? step.label : step.kind === 'intro' ? 'Up next' : step.label;
 
     const head = blockIntro
-      ? `<div class="s-head"><div><div class="s-name">Timed intervals</div><div class="s-meta">${plural(step.rounds, 'round')}</div></div></div>
+      ? `<div class="s-head"><div><div class="s-name">${esc(blockTitle(state.active.snapshot.blocks[step.block]))}</div><div class="s-meta">${step.rounds > 1 ? plural(step.rounds, 'round') : E.clock(R.flat.filter((f) => f.section === 'block' && f.block === step.block).reduce((a, f) => a + f.item.seconds, 0))}</div></div></div>
          <ul class="s-list">${R.flat.filter((f) => f.section === 'block' && f.block === step.block)
           .map((f) => `<li>${esc(f.item.name)}${f.item.weight ? ` · ${E.lb(f.item.weight)}` : ''} · ${E.clock(f.item.seconds)}</li>`).join('')}</ul>`
       : `<div class="s-head"><div>
@@ -543,7 +553,7 @@
 
     const side = step.side ? `<span class="side ${step.side}">${sideWord(step.side)}</span>` : '';
     const roundWord = step.section === 'block' ? 'Round' : 'Set';
-    const repLine = step.rounds ? `<div class="s-rep"><span>${roundWord} ${step.round} of ${step.rounds}</span>${side}</div>` : '';
+    const repLine = step.rounds > 1 || (step.rounds && step.side) ? `<div class="s-rep"><span>${roundWord} ${step.round} of ${step.rounds}</span>${side}</div>` : '';
 
     let next = '';
     const nw = isWork ? nextWork(R.index) : null;
@@ -681,7 +691,7 @@
     const st = E.dayStats(d);
     const a = state.active && state.active.date === t ? state.active : null;
     const blocks = d.blocks.map((b, bi) => `<div class="block">
-        <div class="sec-head"><h3>Timed intervals · ${plural(b.rounds, 'round')}</h3>
+        <div class="sec-head"><h3>${esc(blockLabel(b))}</h3>
           ${moreBtn(`data-action="block" data-b="${bi}"`, `Block ${bi + 1} options`)}</div>
         <div class="circuit reorder">${b.items.map((it, i) => row(it, 'block', bi, i, b.rounds, b.items.length)).join('') || '<p class="hint" style="padding-bottom:12px">Empty block. Add an exercise to it.</p>'}</div>
       </div>`).join('');
@@ -958,7 +968,7 @@
   function destinations() {
     const d = day();
     const out = [['warmup', 'Warm-up']];
-    d.blocks.forEach((b, i) => out.push([`b${i}`, `Block ${i + 1}`]));
+    d.blocks.forEach((b, i) => out.push([`b${i}`, b.name || `Block ${i + 1}`]));
     out.push(['new', 'New block'], ['cooldown', 'Cool-down']);
     return out;
   }
@@ -974,7 +984,7 @@
     const last = !isAdd && interval ? E.lastWeight(state.sessions, x.name) : null;
     const weightFmt = (w) => (w ? E.lb(w) : 'Bodyweight');
     const fields = interval
-      ? `<div class="field"><span>Interval</span>${stepper('seconds', x.seconds, 'time', 15, 120, (v) => `${E.clock(v)} each`)}</div>
+      ? `<div class="field"><span>Interval</span>${stepper('seconds', x.seconds, 'time', 15, 600, (v) => (sheet.sec === 'block' && (day().blocks[sheet.b] || {}).rounds === 1 ? E.clock(v) : `${E.clock(v)} each`))}</div>
          <div class="field"><span>Weight</span>${stepper('weight', x.weight || 0, 'weight', 0, 200, weightFmt)}
          ${last && last.weight !== x.weight ? `<p class="hint" style="text-align:center">Last time: ${esc(last.weight ? E.lb(last.weight) : 'bodyweight')} on ${esc(shortDate(last.date))}</p>` : ''}</div>`
       : `<div class="field"><span>Type</span>${seg('kind', x.kind, [['static', 'Static hold'], ['dynamic', 'Dynamic reps']])}</div>
@@ -1047,7 +1057,7 @@
     const swap = sheet.mode === 'swap';
     const target = swap ? list(sheet.sec, sheet.b)[sheet.i] : null;
     const chip = (action, value, label, on) => `<button class="chip" data-action="${action}" data-value="${esc(value)}" aria-pressed="${on}">${esc(label)}</button>`;
-    const eqs = sheet.kind === 'interval' ? [['', 'All'], ['trx', 'TRX'], ['dumbbell', 'Dumbbell'], ['bodyweight', 'Bodyweight']] : [];
+    const eqs = sheet.kind === 'interval' ? [['', 'All'], ['trx', 'TRX'], ['dumbbell', 'Dumbbell'], ['kettlebell', 'Kettlebell'], ['bodyweight', 'Bodyweight']] : [];
     const muscles = E.MUSCLE_IDS.filter((m) => LIB.some((x) => x.muscles.includes(m) && (sheet.kind === 'stretch') === (x.equipment === 'stretch')));
     return `<div class="sheet-top">${swap ? '<button data-action="close">Cancel</button><span></span>' : '<span></span><button class="done" data-action="close">Done</button>'}</div>
       <h1 id="sheet-title" class="detail-name" tabindex="-1">${swap ? `Swap ${esc(target.name)}` : 'Exercise library'}</h1>
@@ -1094,7 +1104,7 @@
     const y = sheetEl.scrollTop;
     renderSheet();
     sheetEl.scrollTop = y;
-    const where = sheet.sec === 'block' ? `Block ${sheet.b + 1}` : SEC_NAME[sheet.sec];
+    const where = sheet.sec === 'block' ? (day().blocks[sheet.b].name || `Block ${sheet.b + 1}`) : SEC_NAME[sheet.sec];
     toast(`Added ${entry.name} to ${where}`);
   }
 
@@ -1137,12 +1147,13 @@
     const x = sheet.draft;
     const n = day().blocks[sheet.b].items.length;
     return `<div class="sheet-top"><button data-action="close">Cancel</button><button class="done" data-action="save-block">Save</button></div>
-      <h1 id="sheet-title" class="detail-name" tabindex="-1">Block ${sheet.b + 1}</h1>
+      <h1 id="sheet-title" class="detail-name" tabindex="-1">${esc(x.name.trim() || `Block ${sheet.b + 1}`)}</h1>
       <p class="lead">${n > 1 ? `A circuit: each of the ${n} exercises once per round.` : 'One exercise, repeated each round.'}</p>
+      <label class="field"><span>Name</span><input type="text" data-field="name" value="${esc(x.name)}" placeholder="Timed intervals" maxlength="40" autocomplete="off"></label>
       <div class="field"><span>Rounds</span>${stepper('rounds', x.rounds, 'rounds', 1, 8)}</div>
       ${n > 1 ? `<div class="field"><span>Rest between exercises</span>${stepper('rest', x.rest, 'rest', 0, 60, (v) => (v ? E.clock(v) : 'None'))}</div>` : ''}
       <div class="field"><span>Rest between rounds</span>${stepper('roundRest', x.roundRest, 'round rest', 0, 180, (v) => (v ? E.clock(v) : 'None'))}</div>
-      <div class="field"><span>Every interval in this block</span>${stepper('allSeconds', x.allSeconds, 'time', 15, 120, (v) => `${E.clock(v)} each`)}
+      <div class="field"><span>Every interval in this block</span>${stepper('allSeconds', x.allSeconds, 'time', 15, 600, (v) => `${E.clock(v)} each`)}
         <p class="hint" style="text-align:center">${x.allTouched ? 'Will set all of them' : 'Leave as is to keep each exercise’s own time'}</p></div>
       <div class="detail-actions">
         <button class="link" data-action="block-move" data-delta="-1" ${sheet.b === 0 ? 'disabled' : ''}>Move up</button>
@@ -1351,7 +1362,7 @@
     const x = sheet.draft;
     const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     switch (field) {
-      case 'seconds': x.seconds = clamp(x.seconds + delta * 5, x.kind === 'interval' ? 15 : 5, 120); break;
+      case 'seconds': x.seconds = x.kind === 'interval' ? E.stepSeconds(x.seconds, delta) : clamp(x.seconds + delta * 5, 5, 120); break;
       case 'weight': {
         const w = x.weight || 0;
         const step = delta > 0 ? E.weightStep(w) : E.weightStep(Math.max(0, w - 0.01));
@@ -1363,7 +1374,7 @@
       case 'rounds': x.rounds = clamp(x.rounds + delta, 1, 8); break;
       case 'rest': x.rest = clamp(x.rest + delta * 5, 0, 60); break;
       case 'roundRest': x.roundRest = clamp(x.roundRest + delta * 15, 0, 180); break;
-      case 'allSeconds': x.allSeconds = clamp(x.allSeconds + delta * 5, 15, 120); x.allTouched = true; break;
+      case 'allSeconds': x.allSeconds = E.stepSeconds(x.allSeconds, delta); x.allTouched = true; break;
     }
     renderSheet();
   }
@@ -1563,7 +1574,7 @@
       case 'block': {
         const bl = day().blocks[b];
         const secs = bl.items.map((x) => x.seconds);
-        openSheet({ type: 'block', b, draft: { rounds: bl.rounds, rest: bl.rest, roundRest: bl.roundRest, allSeconds: secs[0] || 45, allTouched: false } });
+        openSheet({ type: 'block', b, draft: { name: bl.name || '', rounds: bl.rounds, rest: bl.rest, roundRest: bl.roundRest, allSeconds: secs[0] || 45, allTouched: false } });
         break;
       }
       case 'section':
@@ -1621,6 +1632,7 @@
       case 'save-block': {
         const bl = day().blocks[sheet.b];
         const x = sheet.draft;
+        bl.name = x.name.trim().slice(0, 40);
         bl.rounds = x.rounds;
         bl.rest = x.rest;
         bl.roundRest = x.roundRest;

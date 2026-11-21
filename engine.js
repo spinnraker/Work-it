@@ -158,7 +158,60 @@
         S('knees-to-chest', 'Knees to Chest', ['lower-back'], 'static', { sets: 1, seconds: 45, cue: 'On your back, hug both knees in. Let the low back relax into the floor.' }),
       ],
     },
+    // A 30-minute hybrid day: warm-up, run, AMRAP, kettlebell strength, cool-down.
+    conditioning: {
+      id: 'conditioning',
+      name: 'Conditioning',
+      warmupOn: true,
+      cooldownOn: true,
+      warmup: [],
+      blocks: [
+        {
+          id: 'c-warm', name: 'Warm-up', rounds: 1, rest: 0, roundRest: 0,
+          items: [
+            I('inchworm-move', 'Inchworm', ['hamstrings', 'abs'], null, 'Fold forward, walk hands out to a plank, walk back up.', { seconds: 40, equipment: 'bodyweight' }),
+            I('push-up-down-dog', 'Push-Up to Downward Dog', ['chest', 'shoulders'], null, 'One push-up, then push hips up and back into downward dog.', { seconds: 40, equipment: 'bodyweight' }),
+            I('tabletop-cat-cow', 'Tabletop Cat Cow', ['lower-back'], null, 'On hands and knees. Round the back up, then let the belly drop.', { seconds: 40, equipment: 'bodyweight' }),
+            I('alt-worlds-greatest', 'Alt. World’s Greatest Stretch', ['quads', 'hamstrings'], null, 'Lunge, elbow to the instep, rotate the arm to the ceiling. Alternate sides.', { seconds: 40, equipment: 'bodyweight' }),
+            I('scapular-pull-up', 'Scapular Pull-Up', ['lats'], null, 'Hang with straight arms. Pull the shoulder blades down and together, then release.', { seconds: 40, equipment: 'bodyweight' }),
+            I('jog', 'Jog', ['quads', 'calves'], null, 'Easy pace. Get the heart rate up.', { seconds: 90, equipment: 'bodyweight' }),
+          ],
+        },
+        {
+          id: 'c-run', name: 'Run', rounds: 1, rest: 0, roundRest: 0,
+          items: [
+            I('run', 'Run', ['quads', 'hamstrings', 'calves'], null, 'Steady, about your one-mile pace. Roughly 0.7 to 0.9 miles.', { seconds: 420, equipment: 'bodyweight' }),
+          ],
+        },
+        {
+          id: 'c-amrap', name: 'Conditioning', rounds: 1, rest: 0, roundRest: 0,
+          items: [
+            I('amrap-pbs', 'AMRAP: 8 Pull-Ups · 8 Burpees · 8 Squats', ['lats', 'chest', 'quads'], null, 'As many rounds as you can. Count your rounds.', { seconds: 360, library: false }),
+          ],
+        },
+        {
+          id: 'c-strength', name: 'Strength', rounds: 1, rest: 0, roundRest: 0,
+          items: [
+            I('kb-goblet-lunge', 'Alt. KB Goblet Forward Lunge', ['quads', 'glutes'], null, 'Bell at the chest, step forward, back knee down. Alternate legs.', { seconds: 60, equipment: 'kettlebell' }),
+            I('kb-high-pull', 'KB High Pull', ['shoulders', 'glutes'], null, 'Hinge, then drive the hips and pull the bell to chest height, elbow high.', { seconds: 60, equipment: 'kettlebell' }),
+            I('kb-goblet-squat', 'KB Goblet Squat', ['quads', 'glutes'], null, 'Bell at the chest, sit between your heels, chest up.', { seconds: 60, equipment: 'kettlebell' }),
+            I('kb-swing', 'Russian KB Swing', ['glutes', 'hamstrings'], null, 'Hinge and snap the hips. The bell floats to chest height; arms stay loose.', { seconds: 60, equipment: 'kettlebell' }),
+            I('kb-plank-drag', 'KB High Plank Drag', ['abs', 'shoulders'], null, 'High plank, reach under and drag the bell across. Hips stay square.', { seconds: 60, equipment: 'kettlebell' }),
+          ],
+        },
+      ],
+      cooldown: [
+        S('childs-pose-side', 'Child’s Pose Hold', ['lats', 'lower-back'], 'static', { sets: 1, seconds: 45, sides: 'each', cue: 'Hips to heels, walk both hands to one side to stretch the opposite side.' }),
+        S('tabletop-thread-needle', 'Tabletop Thread the Needle Hold', ['lats', 'shoulders'], 'static', { sets: 1, seconds: 45, sides: 'each', cue: 'On hands and knees, slide one arm under the other and rest the shoulder down.' }),
+        S('lizard', 'Lizard Hold', ['quads', 'glutes'], 'static', { sets: 1, seconds: 45, sides: 'each', cue: 'Low lunge, both hands inside the front foot. Sink the hips.' }),
+        S('half-split', 'Half Split Hold', ['hamstrings'], 'static', { sets: 1, seconds: 45, sides: 'each', cue: 'Back knee down, front leg straight, fold over it with a long back.' }),
+      ],
+    },
   };
+
+  /** Bumped when a built-in routine is added; existing data gets it once. */
+  const SEED_VERSION = 2;
+  const SEED_ADDED = { conditioning: 2 };
 
   // ---------- library ----------
   //
@@ -281,7 +334,7 @@
     const all = [];
     const seen = new Set();
     const add = (it) => {
-      if (seen.has(it.name)) return;
+      if (seen.has(it.name) || it.library === false) return;
       seen.add(it.name);
       all.push({ ...it, equipment: it.equipment || (STRETCH_KINDS.has(it.kind) ? 'stretch' : 'bodyweight') });
     };
@@ -290,7 +343,7 @@
     return all.map((x) => JSON.parse(JSON.stringify(x)));
   }
 
-  const EQUIPMENT = { trx: 'TRX', dumbbell: 'Dumbbell', bodyweight: 'Bodyweight', stretch: 'Stretch' };
+  const EQUIPMENT = { trx: 'TRX', dumbbell: 'Dumbbell', kettlebell: 'Kettlebell', bodyweight: 'Bodyweight', stretch: 'Stretch' };
 
   /**
    * Filter the library. kind: 'interval' (TRX, dumbbell, bodyweight) or 'stretch'.
@@ -337,6 +390,7 @@
       days: JSON.parse(JSON.stringify(SEED_DAYS)),
       order: Object.keys(SEED_DAYS), // routines in rotation order
       current: 'upper',
+      seedVersion: SEED_VERSION,
       settings: defaultSettings(),
       sessions: [],
       active: null,
@@ -391,6 +445,7 @@
     if (!b || typeof b !== 'object' || !Array.isArray(b.items)) { counter.n++; return null; }
     return {
       id: str(b.id) || `b-${rid()}`,
+      name: str(b.name).trim().slice(0, 40),
       rounds: int(b.rounds, 1, 10, 3),
       rest: int(b.rest, 0, 300, 15),
       roundRest: int(b.roundRest, 0, 600, 30),
@@ -448,7 +503,10 @@
         if (clean) days[id] = clean;
       }
     }
+    const seedVersion = int(raw.seedVersion, 1, 1000, 1);
     if (!Object.keys(days).length) days = base.days;
+    // Built-in routines added since this data was saved (once; deleting one later sticks).
+    else for (const [id, v] of Object.entries(SEED_ADDED)) if (v > seedVersion && !days[id]) days[id] = JSON.parse(JSON.stringify(SEED_DAYS[id]));
     // Rotation order: the saved order first, then any routine it's missing.
     const order = (Array.isArray(raw.order) ? raw.order : []).filter((id, k, a) => days[id] && a.indexOf(id) === k);
     for (const id of Object.keys(days)) if (!order.includes(id)) order.push(id);
@@ -492,7 +550,7 @@
       };
     }
     return {
-      state: { days, order, current: days[raw.current] ? raw.current : order[0], settings, sessions, active },
+      state: { days, order, current: days[raw.current] ? raw.current : order[0], seedVersion: Math.max(seedVersion, SEED_VERSION), settings, sessions, active },
       dropped: counter.n,
     };
   }
@@ -513,6 +571,7 @@
   function describe(item, rounds) {
     const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
     if (item.kind === 'interval') {
+      if (rounds === 1) return [item.weight ? lb(item.weight) : '', clock(item.seconds)].filter(Boolean).join(' · ');
       return [plural(rounds, 'interval'), item.weight ? lb(item.weight) : '', `${clock(item.seconds)} each`].filter(Boolean).join(' · ');
     }
     const side = item.sides === 'each' ? ' per side' : '';
@@ -647,6 +706,13 @@
   }
 
   // ---------- progression ----------
+
+  /** Step an interval length: 5 s steps up to 2 min, 15 s to 5 min, 30 s to 10 min. */
+  function stepSeconds(v, dir, min = 15, max = 600) {
+    const step = (x) => (x < 120 ? 5 : x < 300 ? 15 : 30);
+    const next = dir > 0 ? v + step(v) : v - step(v - 1);
+    return Math.min(max, Math.max(min, next));
+  }
 
   /** Smallest sensible dumbbell jump for this weight. */
   function weightStep(w) {
@@ -804,10 +870,10 @@
 
   return {
     toKey, fromKey, addDays, diffDays, weekday, weekStart,
-    MUSCLES, MUSCLE_IDS, SEED_DAYS, library, EQUIPMENT, filterLibrary, fromLibrary, defaultSettings, freshState, normalize, cleanItem, cleanWeight,
+    MUSCLES, MUSCLE_IDS, SEED_DAYS, SEED_VERSION, library, EQUIPMENT, filterLibrary, fromLibrary, defaultSettings, freshState, normalize, cleanItem, cleanWeight,
     clock, lb, describe, flatten, dayStats,
     INTRO_SECONDS, READY_SECONDS, buildPlan, workTargets, workDone, backTarget, estimateSeconds, sectionSeconds, summarize,
-    weightStep, progress, trendFor, nextDay, nextInOrder, newRoutine, moveTo, dropIndex,
+    weightStep, stepSeconds, progress, trendFor, nextDay, nextInOrder, newRoutine, moveTo, dropIndex,
     workoutDays, weekStreak, weekCount, muscleReport, lastWeight,
   };
 });

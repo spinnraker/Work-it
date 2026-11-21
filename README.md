@@ -32,6 +32,18 @@ No dependencies and no build step. To put it on your iPhone, host the folder on 
 | Timed intervals · 3 rounds | TRX Squat · Plank · Cat Cow (0:45 each) |
 | Cool-down | Standing Quad Stretch · Figure-Four Stretch · Seated Hip Cross-Over · Knees to Chest |
 
+**Conditioning**: about 30 minutes, built as one-round named blocks
+
+| Block | What |
+|---|---|
+| Warm-up | Inchworm · Push-Up to Downward Dog · Tabletop Cat Cow · Alt. World’s Greatest Stretch · Scapular Pull-Up (0:40 each) · Jog (1:30) |
+| Run | 7:00 steady, about 0.7–0.9 miles |
+| Conditioning | AMRAP 6:00: 8 Pull-Ups · 8 Burpees · 8 Squats (count your rounds) |
+| Strength | Alt. KB Goblet Forward Lunge · KB High Pull · KB Goblet Squat · Russian KB Swing · KB High Plank Drag (1:00 each) |
+| Cool-down | Child’s Pose · Tabletop Thread the Needle · Lizard · Half Split (0:45 per side) |
+
+If you already had the app, Conditioning is added once to the end of your routines; delete it and it stays deleted. Set kettlebell weights with ⋯ on each move.
+
 The cool-down stretches target the muscles that day works, so they don't add to the muscle count.
 
 ## Your own routines
@@ -68,7 +80,7 @@ Editing an exercise shows the weight you used last time.
 
 - **⋯ on an exercise**: name, muscles, interval length, weight (or sets, hold, reps and sides for stretches), a one-line form cue, move up/down, remove, or **Swap for another exercise** (opens the library on the same muscle; the new one keeps the spot and interval length).
 - **Drag ≡** on an exercise to reorder it within its block, warm-up or cool-down. The page scrolls when you drag near the top or bottom. With a keyboard, focus ≡ and use the arrow keys.
-- **⋯ on a block**: rounds, rest between exercises, rest between rounds, set every interval in the block at once, move or delete the block.
+- **⋯ on a block**: a name ("Strength", "Run"), rounds, rest between exercises, rest between rounds, set every interval in the block at once, move or delete the block.
 - **⋯ on Warm-up / Cool-down**: turn it off for the workout, add a stretch.
 - **Add exercise** opens the exercise library. Choose where it goes (warm-up, a block, a new block, or cool-down), then tap as many as you want. Or **Make your own**.
 
