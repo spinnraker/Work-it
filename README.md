@@ -55,10 +55,23 @@ Editing an exercise shows the weight you used last time.
 
 ## Editing
 
-- **⋯ on an exercise**: name, muscles, interval length, weight (or sets, hold, reps and sides for stretches), a one-line form cue, move up/down, remove.
+- **⋯ on an exercise**: name, muscles, interval length, weight (or sets, hold, reps and sides for stretches), a one-line form cue, move up/down, remove, or **Swap for another exercise** (opens the library on the same muscle; the new one keeps the spot and interval length).
 - **⋯ on a block**: rounds, rest between exercises, rest between rounds, set every interval in the block at once, move or delete the block.
 - **⋯ on Warm-up / Cool-down**: turn it off for the workout, add a stretch.
-- **Add exercise**: pick from the built-in list (exercises for this day's muscles come first) or type your own, and choose where it goes: warm-up, a block, a new block, or cool-down.
+- **Add exercise** opens the exercise library. Choose where it goes (warm-up, a block, a new block, or cool-down), then tap as many as you want. Or **Make your own**.
+
+## Exercise library
+
+About 100 exercises to switch things up, each with muscles, a form cue and a starting weight:
+
+| | Count | Examples |
+|---|---|---|
+| **TRX** | 24 | Row, Single Arm Row, Chest Press, Chest Fly, Atomic Push Up, Bicep Curl, Triceps Press, Y Fly, T Fly, Face Pull, Squat, Jump Squat, Pistol Squat, Suspended Lunge, Crossing Balance Lunge, Side Lunge, Hamstring Curl, Hip Press, Knee Tuck, Pike, Mountain Climber, Plank, Side Plank, Calf Raise |
+| **Dumbbell** | 36 | Bench, Incline and Floor Press, Fly, Pullover, Rows (single, bent-over, renegade), Reverse Fly, Shoulder and Arnold Press, Lateral and Front Raise, Upright Row, Curls (bicep, hammer, concentration), Kickbacks, Overhead Extension, Skull Crusher, Goblet and Sumo Squat, Lunges (forward, reverse, lateral), Bulgarian Split Squat, Step Up, Romanian Deadlift (two-leg and single), Hip Thrust, Glute Bridge, Calf Raise, Russian Twist, Woodchop, Suitcase Carry |
+| **Bodyweight** | 20 | Pull Up, Push Up, Bench Dip, Plank, Side Plank, Dead Bug, Bicycle Crunch, Hollow Hold, Mountain Climber, Superman, Squat, Glute Bridge, Fire Hydrant, Clamshell, Side-Lying Leg Raise, Calf Raise … |
+| **Stretches** | 24 | For warm-up and cool-down: arm circles, leg swings, World’s Greatest Stretch, inchworm, Thread the Needle, Pigeon Pose, hamstring and calf stretches … |
+
+Filter by equipment and muscle, or search by name. Exercises for the muscles you're working come first. Dumbbell exercises start at the weight you last used for them, if you've done them before.
 
 ## Body and Log
 

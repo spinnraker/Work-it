@@ -160,10 +160,49 @@ test('normalize keeps good data and sets aside bad records', () => {
   assert.equal(E.normalize(null).dropped, 1);
 });
 
-test('library has every built-in exercise once', () => {
+test('library has every built-in exercise once, tagged by equipment', () => {
   const lib = E.library();
   const names = lib.map((x) => x.name);
   assert.equal(new Set(names).size, names.length);
-  assert.ok(names.includes('Plank'));
-  assert.ok(names.includes('Push Up'));
+  for (const d of Object.values(E.SEED_DAYS)) {
+    for (const it of [...d.warmup, ...d.blocks.flatMap((b) => b.items), ...d.cooldown]) assert.ok(names.includes(it.name), it.name);
+  }
+  const count = (eq) => lib.filter((x) => x.equipment === eq).length;
+  assert.ok(count('trx') >= 20);
+  assert.ok(count('dumbbell') >= 30);
+  for (const x of lib) {
+    assert.ok(E.EQUIPMENT[x.equipment], x.name);
+    assert.ok(x.muscles.length && x.muscles.every((m) => E.MUSCLES[m]), x.name);
+    assert.ok(x.cue, x.name);
+    if (x.equipment === 'dumbbell') assert.ok(x.weight > 0, x.name);
+    if (x.equipment === 'stretch') assert.notEqual(x.kind, 'interval', x.name);
+    else assert.equal(x.kind, 'interval', x.name);
+  }
+});
+
+test('library filters by kind, equipment, muscle and search words', () => {
+  const lib = E.library();
+  const trxBack = E.filterLibrary(lib, { equipment: 'trx', muscle: 'lats' });
+  assert.ok(trxBack.length >= 2 && trxBack.every((x) => x.equipment === 'trx' && x.muscles.includes('lats')));
+  assert.ok(E.filterLibrary(lib, { kind: 'stretch' }).every((x) => x.equipment === 'stretch'));
+  assert.ok(E.filterLibrary(lib).every((x) => x.equipment !== 'stretch'));
+  assert.deepEqual(E.filterLibrary(lib, { q: 'bulgarian' }).map((x) => x.name), ['Bulgarian Split Squat']);
+  assert.ok(E.filterLibrary(lib, { q: 'trx row' }).some((x) => x.name === 'TRX Row'));
+  const pref = E.filterLibrary(lib, { prefer: ['calves'] });
+  assert.ok(pref[0].muscles.includes('calves'));
+});
+
+test('fromLibrary keeps the block’s interval length and your last weight', () => {
+  const lib = E.library();
+  const curl = lib.find((x) => x.name === 'Hammer Curl');
+  const it = E.fromLibrary(curl, { kind: 'interval', seconds: 40, last: { weight: 20 } });
+  assert.equal(it.seconds, 40);
+  assert.equal(it.weight, 20);
+  assert.equal(it.trend, null);
+  assert.notEqual(it.id, curl.id);
+  const fresh = E.fromLibrary(curl, { kind: 'interval' });
+  assert.equal(fresh.weight, 15);
+  const pigeon = E.fromLibrary(lib.find((x) => x.name === 'Pigeon Pose'), { kind: 'stretch' });
+  assert.equal(pigeon.kind, 'static');
+  assert.equal(pigeon.sides, 'each');
 });

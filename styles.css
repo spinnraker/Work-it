@@ -345,3 +345,21 @@ textarea:focus { border-color: var(--fg); }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
+
+/* ---------- library ---------- */
+
+.lib-search { margin-top: 24px; }
+.lib-search input {
+  width: 100%; height: 44px; padding: 0 14px; border-radius: 12px;
+  background: var(--faint); font-size: 17px; -webkit-appearance: none; appearance: none;
+}
+.lib-search input::placeholder { color: var(--muted); }
+.lib-list { margin-top: 16px; }
+.lib-count { font-size: 13px; color: var(--muted); padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.lib-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 10px 0; border-bottom: 1px solid var(--line); text-align: left; }
+.lib-row span { flex: 1; min-width: 0; }
+.lib-row b { display: block; font-weight: 600; }
+.lib-row small { display: block; font-size: 14px; color: var(--muted); margin-top: 2px; }
+.lib-row i { flex: none; min-width: 36px; height: 32px; padding: 0 10px; border-radius: 16px; border: 1.5px solid var(--fg); display: grid; place-items: center; font-style: normal; font-size: 14px; font-weight: 600; }
+.lib-row:disabled i { border-color: var(--line); color: var(--muted); }
+.lib-row:disabled b { color: var(--muted); }

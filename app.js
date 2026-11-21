@@ -808,6 +808,7 @@
       block: blockSheet,
       section: sectionSheet,
       review: reviewSheet,
+      library: librarySheet,
       session: sessionSheet,
       settings: settingsSheet,
     }[sheet.type]();
@@ -843,20 +844,8 @@
     const { draft: x, mode } = sheet;
     const isAdd = mode === 'add';
     const interval = x.kind === 'interval';
-    let picker = '';
-    if (isAdd) {
-      const want = destKind(sheet.dest);
-      const have = new Set(list(sheet.sec, sheet.b).map((it) => it.name));
-      const mine = new Set(E.dayStats(day()).muscleIds);
-      const fits = (it) => (it.muscles.some((m) => mine.has(m)) ? 0 : 1);
-      const lib = E.library()
-        .filter((it) => (want === 'interval' ? it.kind === 'interval' : it.kind !== 'interval') && !have.has(it.name))
-        .sort((p, q) => fits(p) - fits(q));
-      picker = `<div class="field"><span>Add to</span>
-          <div class="chips">${destinations().map(([v, l]) => `<button class="chip" data-action="dest" data-value="${v}" aria-pressed="${sheet.dest === v}">${esc(l)}</button>`).join('')}</div></div>
-        <div class="field"><span>Pick one</span>
-          <div class="chips scroll">${lib.map((it) => `<button class="chip" data-action="pick" data-value="${esc(it.name)}" aria-pressed="${x.name === it.name}">${esc(it.name)}</button>`).join('')}</div></div>`;
-    }
+    const picker = isAdd ? `<div class="field"><span>Add to</span>
+        <div class="chips">${destinations().map(([v, l]) => `<button class="chip" data-action="dest" data-value="${v}" aria-pressed="${sheet.dest === v}">${esc(l)}</button>`).join('')}</div></div>` : '';
     const last = !isAdd && interval ? E.lastWeight(state.sessions, x.name) : null;
     const weightFmt = (w) => (w ? E.lb(w) : 'Bodyweight');
     const fields = interval
@@ -870,14 +859,15 @@
           : `<div class="field"><span>Hold</span>${stepper('seconds', x.seconds, 'hold', 5, 120, E.clock)}</div>`}
          <div class="field"><span>Sides</span>${seg('sides', x.sides, [['none', 'Both together'], ['each', 'Each side']])}</div>`;
     const n = list(sheet.sec, sheet.b).length;
-    const actions = isAdd ? '' : `<div class="detail-actions">
+    const actions = isAdd ? '' : `<div class="form-actions"><button class="btn ghost block" data-action="swap">Swap for another exercise</button></div>
+      <div class="detail-actions">
         <button class="link" data-action="move" data-delta="-1" ${sheet.i === 0 ? 'disabled' : ''}>Move up</button>
         <button class="link" data-action="move" data-delta="1" ${sheet.i >= n - 1 ? 'disabled' : ''}>Move down</button>
         <button class="link danger" data-action="remove">Remove</button>
       </div>`;
     return `<div class="sheet-top"><button data-action="close">Cancel</button>
         <button class="done" data-action="save-item" ${x.name.trim() ? '' : 'disabled'}>${isAdd ? 'Add' : 'Save'}</button></div>
-      <h1 id="sheet-title" class="detail-name" tabindex="-1">${isAdd ? 'Add exercise' : esc(x.name || 'Exercise')}</h1>
+      <h1 id="sheet-title" class="detail-name" tabindex="-1">${isAdd ? 'Your own exercise' : esc(x.name || 'Exercise')}</h1>
       ${picker}
       <label class="field"><span>Name</span><input type="text" data-field="name" value="${esc(x.name)}" placeholder="e.g. Push Up" maxlength="80" autocomplete="off"></label>
       <div class="field"><span>Muscles</span>
@@ -885,6 +875,102 @@
       ${fields}
       <label class="field"><span>Cue</span><textarea data-field="cue" rows="2" placeholder="One line of form cues, shown during the workout">${esc(x.cue)}</textarea></label>
       ${actions}`;
+  }
+
+  // ----- library -----
+
+  const LIB = E.library();
+
+  function openLibrary(mode, opts) {
+    const s = { type: 'library', mode, eq: '', muscle: '', q: '', ...opts };
+    if (mode === 'swap') {
+      const it = list(s.sec, s.b)[s.i];
+      s.muscle = it.muscles[0] || '';
+      s.kind = it.kind === 'interval' ? 'interval' : 'stretch';
+    } else {
+      s.kind = destKind(s.dest);
+    }
+    openSheet(s);
+    const on = sheetEl.querySelector('.chips.scroll [aria-pressed="true"]');
+    if (on) on.parentElement.scrollLeft = on.offsetLeft - on.parentElement.offsetLeft - 20;
+  }
+
+  function libMatches() {
+    const target = sheet.mode === 'swap' ? list(sheet.sec, sheet.b)[sheet.i] : null;
+    const prefer = target ? target.muscles : E.dayStats(day()).muscleIds;
+    return E.filterLibrary(LIB, { kind: sheet.kind, equipment: sheet.eq, muscle: sheet.muscle, q: sheet.q, prefer });
+  }
+
+  function libRows() {
+    const found = libMatches();
+    const here = sheet.mode === 'add' ? new Set(list(sheet.sec, sheet.b).map((x) => x.name)) : new Set();
+    const target = sheet.mode === 'swap' ? list(sheet.sec, sheet.b)[sheet.i] : null;
+    const rows = found.map((x) => {
+      const added = here.has(x.name) || (target && target.name === x.name);
+      const sub = [E.EQUIPMENT[x.equipment], x.muscles.map((m) => E.MUSCLES[m].name).join(', '),
+        x.kind === 'interval' ? (x.weight ? E.lb(x.weight) : '') : E.describe(x, x.sets).replace(/^\w+ stretch · /, '')]
+        .filter(Boolean).join(' · ');
+      return `<button class="lib-row" data-action="lib-pick" data-value="${esc(x.name)}" ${added ? 'disabled' : ''}>
+          <span><b>${esc(x.name)}</b><small>${esc(sub)}</small></span>
+          <i aria-hidden="true">${added ? (target ? 'Current' : 'Added') : sheet.mode === 'swap' ? 'Swap' : '+'}</i>
+        </button>`;
+    }).join('');
+    return `<p class="lib-count">${plural(found.length, 'exercise')}</p>${rows || '<p class="empty-note">Nothing matches. Try another filter.</p>'}`;
+  }
+
+  function librarySheet() {
+    const swap = sheet.mode === 'swap';
+    const target = swap ? list(sheet.sec, sheet.b)[sheet.i] : null;
+    const chip = (action, value, label, on) => `<button class="chip" data-action="${action}" data-value="${esc(value)}" aria-pressed="${on}">${esc(label)}</button>`;
+    const eqs = sheet.kind === 'interval' ? [['', 'All'], ['trx', 'TRX'], ['dumbbell', 'Dumbbell'], ['bodyweight', 'Bodyweight']] : [];
+    const muscles = E.MUSCLE_IDS.filter((m) => LIB.some((x) => x.muscles.includes(m) && (sheet.kind === 'stretch') === (x.equipment === 'stretch')));
+    return `<div class="sheet-top">${swap ? '<button data-action="close">Cancel</button><span></span>' : '<span></span><button class="done" data-action="close">Done</button>'}</div>
+      <h1 id="sheet-title" class="detail-name" tabindex="-1">${swap ? `Swap ${esc(target.name)}` : 'Exercise library'}</h1>
+      <p class="lead">${swap ? 'Pick one to take its place. It keeps the same spot and interval length.' : 'Tap to add. Add as many as you like.'}</p>
+      ${swap ? '' : `<div class="field"><span>Add to</span><div class="chips">${destinations().map(([v, l]) => chip('lib-dest', v, l, sheet.dest === v)).join('')}</div></div>`}
+      <label class="field lib-search"><span class="sr-only">Search</span>
+        <input type="search" data-lib="q" value="${esc(sheet.q)}" placeholder="Search" autocomplete="off" enterkeyhint="search"></label>
+      ${eqs.length ? `<div class="chips">${eqs.map(([v, l]) => chip('lib-eq', v, l, sheet.eq === v)).join('')}</div>` : ''}
+      <div class="chips scroll">${chip('lib-muscle', '', 'All muscles', !sheet.muscle)}${muscles.map((m) => chip('lib-muscle', m, E.MUSCLES[m].name, sheet.muscle === m)).join('')}</div>
+      <div id="lib-list" class="lib-list">${libRows()}</div>
+      ${swap ? '' : '<div class="form-actions"><button class="btn ghost block" data-action="make-own">Make your own</button></div>'}`;
+  }
+
+  function refreshLibList() {
+    const el = document.getElementById('lib-list');
+    if (el) el.innerHTML = libRows();
+  }
+
+  function libPick(name) {
+    const entry = LIB.find((x) => x.name === name);
+    if (!entry) return;
+    const last = E.lastWeight(state.sessions, name);
+    if (sheet.mode === 'swap') {
+      const arr = list(sheet.sec, sheet.b);
+      const old = arr[sheet.i];
+      arr[sheet.i] = E.fromLibrary(entry, { kind: sheet.kind, seconds: old.kind === 'interval' ? old.seconds : 0, last });
+      save();
+      closeSheet();
+      toast(`Swapped in ${entry.name}`);
+      return;
+    }
+    const d = day();
+    if (sheet.dest === 'new') {
+      d.blocks.push({ id: `b-${uid()}`, rounds: 3, rest: 15, roundRest: 30, items: [] });
+      sheet.dest = `b${d.blocks.length - 1}`; // more picks go to the same new block
+      const to = destTo(sheet.dest);
+      sheet.sec = to.sec;
+      sheet.b = to.b;
+    }
+    const arr = list(sheet.sec, sheet.b);
+    const seconds = sheet.kind === 'interval' && arr.length ? arr[0].seconds : 0;
+    arr.push(E.fromLibrary(entry, { kind: sheet.kind, seconds, last }));
+    save();
+    const y = sheetEl.scrollTop;
+    renderSheet();
+    sheetEl.scrollTop = y;
+    const where = sheet.sec === 'block' ? `Block ${sheet.b + 1}` : SEC_NAME[sheet.sec];
+    toast(`Added ${entry.name} to ${where}`);
   }
 
   function newDraft(dest) {
@@ -1171,10 +1257,40 @@
         break;
       }
       case 'add':
-        openAdd(day().blocks.length ? 'b0' : 'new');
+        openLibrary('add', { ...destTo(day().blocks.length ? 'b0' : 'new'), dest: day().blocks.length ? 'b0' : 'new' });
         break;
       case 'add-to':
-        openAdd(ds.value);
+        openLibrary('add', { ...destTo(ds.value), dest: ds.value });
+        break;
+      case 'make-own':
+        openAdd(sheet.dest);
+        break;
+      case 'swap':
+        openLibrary('swap', { sec: sheet.sec, b: sheet.b, i: sheet.i });
+        break;
+      case 'lib-dest': {
+        const to = destTo(ds.value);
+        const kind = destKind(ds.value);
+        Object.assign(sheet, { dest: ds.value, sec: to.sec, b: to.b });
+        if (kind !== sheet.kind) Object.assign(sheet, { kind, eq: '', muscle: '' });
+        const y = sheetEl.scrollTop;
+        renderSheet();
+        sheetEl.scrollTop = y;
+        break;
+      }
+      case 'lib-eq':
+      case 'lib-muscle': {
+        sheet[ds.action === 'lib-eq' ? 'eq' : 'muscle'] = ds.value;
+        const y = sheetEl.scrollTop;
+        const sx = (sheetEl.querySelector('.chips.scroll') || {}).scrollLeft || 0;
+        renderSheet();
+        sheetEl.scrollTop = y;
+        const sc = sheetEl.querySelector('.chips.scroll');
+        if (sc) sc.scrollLeft = sx;
+        break;
+      }
+      case 'lib-pick':
+        libPick(ds.value);
         break;
       case 'block': {
         const bl = day().blocks[b];
@@ -1208,16 +1324,6 @@
         sheet.b = to.b;
         if (destKind(ds.value) !== was) sheet.draft = newDraft(ds.value);
         renderSheet();
-        break;
-      }
-      case 'pick': {
-        const it = E.library().find((x) => x.name === ds.value);
-        if (!it) break;
-        const interval = destKind(sheet.dest) === 'interval';
-        sheet.draft = { ...it, id: '', kind: interval ? 'interval' : (it.kind === 'interval' ? 'static' : it.kind), trend: null };
-        const y = sheetEl.scrollTop;
-        renderSheet();
-        sheetEl.scrollTop = y;
         break;
       }
       case 'save-item':
@@ -1335,6 +1441,11 @@
 
   sheetEl.addEventListener('input', (ev) => {
     const el = ev.target;
+    if (sheet && sheet.type === 'library' && el.dataset.lib === 'q') {
+      sheet.q = el.value;
+      refreshLibList();
+      return;
+    }
     if (!sheet || !sheet.draft || !el.dataset.field) return;
     sheet.draft[el.dataset.field] = el.value;
     const done = sheetEl.querySelector('[data-action="save-item"]');
