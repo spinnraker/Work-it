@@ -254,3 +254,17 @@ test('fromLibrary keeps the block’s interval length and your last weight', () 
   assert.equal(pigeon.kind, 'static');
   assert.equal(pigeon.sides, 'each');
 });
+
+test('reordering: move an item, and where a dragged row lands', () => {
+  assert.deepEqual(E.moveTo(['a', 'b', 'c', 'd'], 0, 2), ['b', 'c', 'a', 'd']);
+  assert.deepEqual(E.moveTo(['a', 'b', 'c', 'd'], 3, 0), ['d', 'a', 'b', 'c']);
+  assert.deepEqual(E.moveTo(['a', 'b'], 1, 1), ['a', 'b']);
+  assert.deepEqual(E.moveTo(['a', 'b'], 0, 9), ['b', 'a']);
+  const mids = [50, 150, 250, 350]; // four 100px rows
+  assert.equal(E.dropIndex(mids, 0, 60), 0);   // barely moved
+  assert.equal(E.dropIndex(mids, 0, 151), 1);  // past row 1's middle
+  assert.equal(E.dropIndex(mids, 0, 999), 3);  // dragged to the bottom
+  assert.equal(E.dropIndex(mids, 3, 249), 2);
+  assert.equal(E.dropIndex(mids, 3, -50), 0);  // dragged to the top
+  assert.equal(E.dropIndex(mids, 1, 150), 1);
+});

@@ -373,3 +373,24 @@ textarea:focus { border-color: var(--fg); }
 .routine-pick span { min-width: 0; }
 .routine-pick b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .routine-pick small { display: block; font-size: 14px; color: var(--muted); margin-top: 2px; }
+
+/* ---------- drag to reorder ---------- */
+
+.grip {
+  flex: none; width: 40px; height: 44px; margin-right: -10px;
+  display: grid; place-items: center; color: var(--muted);
+  touch-action: none; -webkit-user-select: none; user-select: none; cursor: grab;
+}
+.grip svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.grip + .more, .more + .grip { margin-left: -6px; }
+.ex .more:has(+ .grip) { margin-right: 0; }
+.reorder .ex { background: var(--bg); }
+.reorder.sorting .ex:not(.dragging) { transition: transform .18s cubic-bezier(.2, .8, .2, 1); }
+.reorder.sorting { -webkit-user-select: none; user-select: none; }
+.ex.dragging {
+  z-index: 3; cursor: grabbing;
+  background: var(--faint); border-radius: 4px;
+  /* A raised card a little wider than the row, without moving its content. */
+  box-shadow: 0 0 0 8px var(--faint), 0 0 0 9px var(--line), 0 14px 32px 8px rgba(0, 0, 0, .35);
+}
+.ex.dragging .grip { color: var(--fg); }

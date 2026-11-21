@@ -67,6 +67,7 @@ Editing an exercise shows the weight you used last time.
 ## Editing
 
 - **⋯ on an exercise**: name, muscles, interval length, weight (or sets, hold, reps and sides for stretches), a one-line form cue, move up/down, remove, or **Swap for another exercise** (opens the library on the same muscle; the new one keeps the spot and interval length).
+- **Drag ≡** on an exercise to reorder it within its block, warm-up or cool-down. The page scrolls when you drag near the top or bottom. With a keyboard, focus ≡ and use the arrow keys.
 - **⋯ on a block**: rounds, rest between exercises, rest between rounds, set every interval in the block at once, move or delete the block.
 - **⋯ on Warm-up / Cool-down**: turn it off for the workout, add a stretch.
 - **Add exercise** opens the exercise library. Choose where it goes (warm-up, a block, a new block, or cool-down), then tap as many as you want. Or **Make your own**.

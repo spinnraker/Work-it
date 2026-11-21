@@ -12,6 +12,7 @@
     swap: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/></svg>',
     up: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20V5M6 11l6-6 6 6"/></svg>',
     down: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v15M6 13l6 6 6-6"/></svg>',
+    grip: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8h14M5 12h14M5 16h14"/></svg>',
   };
   const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   const RING_C = 2 * Math.PI * 46;
@@ -644,7 +645,7 @@
     return `<button class="more" ${attrs} aria-label="${esc(label)}">${ICON.more}</button>`;
   }
 
-  function row(it, sec, b, i, rounds) {
+  function row(it, sec, b, i, rounds, count) {
     const at = `data-sec="${sec}" data-b="${b}" data-i="${i}"`;
     const trend = it.trend
       ? `<button class="trend" data-action="trend" ${at} aria-label="${it.trend === 'up' ? 'Go up' : 'Go down'}: ${esc(trendText(it))}">${it.trend === 'up' ? ICON.up : ICON.down}</button>`
@@ -653,6 +654,7 @@
       <button class="ex-body" data-action="item" ${at}><b>${esc(it.name)}</b><span>${esc(E.describe(it, rounds))}</span></button>
       ${trend}
       ${moreBtn(`data-action="item" ${at}`, `Edit ${it.name}`)}
+      ${count > 1 ? `<button class="grip" data-grip ${at} aria-label="Reorder ${esc(it.name)}, ${i + 1} of ${count}. Drag, or use the arrow keys.">${ICON.grip}</button>` : ''}
     </div>`;
   }
 
@@ -670,7 +672,7 @@
     return `<section class="sec ${on ? '' : 'off'}">
       <div class="sec-head"><h2>${SEC_NAME[sec]}</h2><span class="sec-time">${on ? '+' : ''}${Math.max(1, Math.round(secs / 60))}m</span>
         ${moreBtn(`data-action="section" data-sec="${sec}"`, `${SEC_NAME[sec]} options`)}</div>
-      ${items.map((it, i) => row(it, sec, -1, i, it.sets)).join('')}
+      <div class="reorder">${items.map((it, i) => row(it, sec, -1, i, it.sets, items.length)).join('')}</div>
     </section>`;
   }
 
@@ -681,7 +683,7 @@
     const blocks = d.blocks.map((b, bi) => `<div class="block">
         <div class="sec-head"><h3>Timed intervals · ${plural(b.rounds, 'round')}</h3>
           ${moreBtn(`data-action="block" data-b="${bi}"`, `Block ${bi + 1} options`)}</div>
-        <div class="circuit">${b.items.map((it, i) => row(it, 'block', bi, i, b.rounds)).join('') || '<p class="hint" style="padding-bottom:12px">Empty block. Add an exercise to it.</p>'}</div>
+        <div class="circuit reorder">${b.items.map((it, i) => row(it, 'block', bi, i, b.rounds, b.items.length)).join('') || '<p class="hint" style="padding-bottom:12px">Empty block. Add an exercise to it.</p>'}</div>
       </div>`).join('');
     return `<div class="date">${esc(longDate(t))}</div>
       <div class="day-head"><h1>${esc(d.name)}</h1>
@@ -766,6 +768,126 @@
       <div class="section-label">History</div>
       <div class="rows">${rows || '<p class="empty-note">No workouts yet.</p>'}</div>`;
   }
+
+  // ---------- drag to reorder ----------
+  //
+  // Press the ≡ handle and drag. The row follows your finger, the others slide
+  // out of the way, and the page scrolls when you get near the top or bottom.
+  // Only the handle starts a drag, so scrolling the list still works normally.
+
+  let drag = null;
+  const SCROLL_EDGE = 80;
+
+  function moveItem(sec, b, from, to) {
+    const arr = list(sec, b);
+    if (from === to || !arr[from]) return;
+    const next = E.moveTo(arr, from, to);
+    arr.splice(0, arr.length, ...next);
+    save();
+  }
+
+  app.addEventListener('pointerdown', (ev) => {
+    const grip = ev.target.closest('[data-grip]');
+    if (!grip || drag || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
+    const box = grip.closest('.reorder');
+    const rows = [...box.querySelectorAll(':scope > .ex')];
+    const el = grip.closest('.ex');
+    const from = rows.indexOf(el);
+    if (from === -1) return;
+    ev.preventDefault();
+    try { grip.setPointerCapture(ev.pointerId); } catch (e) { /* ignore */ }
+    const rects = rows.map((r) => r.getBoundingClientRect());
+    drag = {
+      id: ev.pointerId, grip, el, rows, from, to: from,
+      sec: grip.dataset.sec, b: Number(grip.dataset.b),
+      startY: ev.clientY + window.scrollY, y: ev.clientY,
+      mids: rects.map((r) => r.top + window.scrollY + r.height / 2),
+      h: rects[from].height,
+      raf: 0,
+    };
+    el.classList.add('dragging');
+    box.classList.add('sorting');
+    if (navigator.vibrate) navigator.vibrate(10);
+    dragFrame();
+  });
+
+  /** One animation frame: follow the finger, shuffle the others, scroll near the edges. */
+  function dragFrame() {
+    if (!drag) return;
+    const top = SCROLL_EDGE;
+    const bottom = window.innerHeight - SCROLL_EDGE - (dock.hidden ? 0 : dock.offsetHeight - 40);
+    let speed = 0;
+    if (drag.y < top) speed = -Math.ceil((top - drag.y) / 6);
+    else if (drag.y > bottom) speed = Math.ceil((drag.y - bottom) / 6);
+    if (speed) window.scrollBy(0, Math.max(-24, Math.min(24, speed)));
+    const dy = drag.y + window.scrollY - drag.startY;
+    drag.to = E.dropIndex(drag.mids, drag.from, drag.mids[drag.from] + dy);
+    drag.el.style.transform = `translateY(${dy}px)`;
+    drag.rows.forEach((r, k) => {
+      if (k === drag.from) return;
+      let shift = 0;
+      if (drag.from < drag.to && k > drag.from && k <= drag.to) shift = -drag.h;
+      if (drag.from > drag.to && k < drag.from && k >= drag.to) shift = drag.h;
+      r.style.transform = shift ? `translateY(${shift}px)` : '';
+    });
+    drag.raf = requestAnimationFrame(dragFrame);
+  }
+
+  app.addEventListener('pointermove', (ev) => {
+    if (!drag || ev.pointerId !== drag.id) return;
+    ev.preventDefault();
+    drag.y = ev.clientY;
+  });
+
+  function endDrag(ev, cancel) {
+    if (!drag || (ev && ev.pointerId !== drag.id)) return;
+    const d = drag;
+    drag = null;
+    cancelAnimationFrame(d.raf);
+    const box = d.el.parentElement;
+    if (box) box.classList.remove('sorting');
+    if (!cancel && d.to !== d.from) {
+      const name = list(d.sec, d.b)[d.from].name;
+      moveItem(d.sec, d.b, d.from, d.to);
+      render();
+      const g = app.querySelector(`[data-grip][data-sec="${d.sec}"][data-b="${d.b}"][data-i="${d.to}"]`);
+      if (g) g.focus({ preventScroll: true });
+      announce(`${name} moved to ${d.to + 1} of ${d.rows.length}`);
+    } else {
+      d.rows.forEach((r) => { r.style.transform = ''; });
+      d.el.classList.remove('dragging');
+    }
+  }
+  app.addEventListener('pointerup', (ev) => endDrag(ev, false));
+  app.addEventListener('pointercancel', (ev) => endDrag(ev, true));
+  // iOS: stop the page from scrolling under a drag that started on a handle.
+  app.addEventListener('touchmove', (ev) => { if (drag) ev.preventDefault(); }, { passive: false });
+
+  // Keyboard: arrow keys on a focused handle move the exercise.
+  app.addEventListener('keydown', (ev) => {
+    const grip = ev.target.closest && ev.target.closest('[data-grip]');
+    if (!grip || (ev.key !== 'ArrowUp' && ev.key !== 'ArrowDown')) return;
+    ev.preventDefault();
+    const { sec } = grip.dataset;
+    const b = Number(grip.dataset.b);
+    const i = Number(grip.dataset.i);
+    const n = list(sec, b).length;
+    const to = i + (ev.key === 'ArrowUp' ? -1 : 1);
+    if (to < 0 || to >= n) return;
+    const name = list(sec, b)[i].name;
+    moveItem(sec, b, i, to);
+    render();
+    const g = app.querySelector(`[data-grip][data-sec="${sec}"][data-b="${b}"][data-i="${to}"]`);
+    if (g) g.focus({ preventScroll: true });
+    announce(`${name} moved to ${to + 1} of ${n}`);
+  });
+
+  // Screen reader announcement without a visible toast.
+  const live = document.createElement('div');
+  live.className = 'sr-only';
+  live.setAttribute('aria-live', 'polite');
+  document.body.appendChild(live);
+  function announce(msg) { live.textContent = ''; setTimeout(() => { live.textContent = msg; }, 30); }
 
   // ---------- sheets ----------
 

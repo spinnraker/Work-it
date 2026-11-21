@@ -672,6 +672,29 @@
   }
 
   /** Which day to suggest next: the other one from the last completed workout. */
+  // ---------- reordering ----------
+
+  /** A copy of `list` with the element at `from` moved to `to`. */
+  function moveTo(list, from, to) {
+    const out = list.slice();
+    if (from < 0 || from >= out.length) return out;
+    const [x] = out.splice(from, 1);
+    out.splice(Math.max(0, Math.min(out.length, to)), 0, x);
+    return out;
+  }
+
+  /**
+   * Where a dragged row lands. `mids` are the vertical midpoints of every row
+   * before the drag started; `y` is the dragged row's current midpoint. It
+   * passes another row once its middle crosses that row's middle.
+   */
+  function dropIndex(mids, from, y) {
+    let to = from;
+    for (let k = from + 1; k < mids.length; k++) if (y > mids[k]) to = k;
+    for (let k = from - 1; k >= 0; k--) if (y < mids[k]) to = k;
+    return to;
+  }
+
   /** The routine after `id` in the rotation, wrapping around. */
   function nextInOrder(order, id) {
     const k = order.indexOf(id);
@@ -784,7 +807,7 @@
     MUSCLES, MUSCLE_IDS, SEED_DAYS, library, EQUIPMENT, filterLibrary, fromLibrary, defaultSettings, freshState, normalize, cleanItem, cleanWeight,
     clock, lb, describe, flatten, dayStats,
     INTRO_SECONDS, READY_SECONDS, buildPlan, workTargets, workDone, backTarget, estimateSeconds, sectionSeconds, summarize,
-    weightStep, progress, trendFor, nextDay, nextInOrder, newRoutine,
+    weightStep, progress, trendFor, nextDay, nextInOrder, newRoutine, moveTo, dropIndex,
     workoutDays, weekStreak, weekCount, muscleReport, lastWeight,
   };
 });
