@@ -1364,6 +1364,11 @@
         <button class="row-btn" data-action="export">Export backup <span>JSON</span></button>
         <button class="row-btn" data-action="import">Import backup <span>Replaces data</span></button>
       </div>
+      <div class="section-label">About</div>
+      <div class="rows">
+        <div class="row-btn" style="cursor:default"><b>Version</b><span id="version">${esc(E.VERSION)} · ${esc(E.fromKey(E.RELEASED).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }))}</span></div>
+        <button class="row-btn" data-action="check-update">Check for updates <span>${updateReady ? 'Ready to install' : ''}</span></button>
+      </div>
       <p class="hint" style="margin-top:20px">Everything stays on this device. No account.</p>`;
   }
 
@@ -1732,6 +1737,12 @@
       case 'export':
         shareFile(JSON.stringify(state, null, 1), `work-it-${today()}.json`, 'application/json', 'Work it backup');
         break;
+      case 'check-update':
+        checkForUpdate();
+        break;
+      case 'apply-update':
+        applyUpdate();
+        break;
       case 'import':
         importData();
         break;
@@ -1782,8 +1793,50 @@
   window.addEventListener('pagehide', () => { if (R) pause(); });
   setInterval(checkDay, 60000);
 
+  // ---------- updates ----------
+  //
+  // The service worker serves the cached app, then fetches the new files in the
+  // background. When a new version takes over, show a banner to reload into it
+  // (never on the very first install, and never by itself mid-workout).
+
+  let swReg = null;
+  let updateReady = false;
+  const banner = document.createElement('div');
+  banner.className = 'update';
+  banner.hidden = true;
+  banner.setAttribute('role', 'status');
+  document.body.appendChild(banner);
+
+  function showUpdate() {
+    updateReady = true;
+    banner.innerHTML = `<span>A new version of Work it is ready</span><button data-action="apply-update">Reload</button>`;
+    banner.hidden = false;
+    if (sheet && sheet.type === 'settings') renderSheet();
+  }
+
+  function applyUpdate() {
+    if (R && !confirm('Reload now? Your workout pauses and picks up where you left off.')) return;
+    if (R) pause();
+    location.reload();
+  }
+
+  function checkForUpdate() {
+    if (updateReady) { applyUpdate(); return; }
+    if (!swReg) { toast(`You have ${E.VERSION}`); return; }
+    swReg.update().then(() => {
+      if (swReg.installing || swReg.waiting) toast('Downloading the update…');
+      else toast(`Up to date · ${E.VERSION}`);
+    }).catch(() => toast('Can’t check while offline'));
+  }
+
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) showUpdate(); });
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      swReg = reg;
+      // Look for a new version whenever the app comes back to the front.
+      document.addEventListener('visibilitychange', () => { if (!document.hidden && !R) reg.update().catch(() => {}); });
+    }).catch(() => {});
   }
 
   render();

@@ -394,3 +394,16 @@ textarea:focus { border-color: var(--fg); }
   box-shadow: 0 0 0 8px var(--faint), 0 0 0 9px var(--line), 0 14px 32px 8px rgba(0, 0, 0, .35);
 }
 .ex.dragging .grip { color: var(--fg); }
+
+/* ---------- update banner ---------- */
+
+.update {
+  position: fixed; z-index: 30; left: 50%; transform: translateX(-50%);
+  top: calc(env(safe-area-inset-top) + 10px);
+  width: calc(100% - 32px); max-width: 448px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 10px 10px 16px; border-radius: 14px;
+  background: var(--fg); color: var(--bg); font-size: 15px; font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+}
+.update button { flex: none; height: 34px; padding: 0 14px; border-radius: 17px; background: var(--bg); color: var(--fg); font-weight: 700; }

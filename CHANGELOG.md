@@ -1,0 +1,24 @@
+# Changelog
+
+Your version is at the bottom of ⋯ → Settings.
+
+| Version | Date | What changed |
+|---|---|---|
+| **1.10.0** | Nov 23, 2026 | Version number in Settings, Check for updates, and a banner to reload when a new version is ready. |
+| 1.9.0 | Nov 23, 2026 | Sounds play over your music (ringer on), or on silent with music paused: your choice. Cues are scheduled on the audio clock so they land on time; no more overlapping tones between back-to-back intervals. |
+| 1.8.0 | Nov 21, 2026 | Conditioning routine (30 min). Blocks can be named. Intervals up to 10 minutes. Kettlebell filter in the library. |
+| 1.7.0 | Nov 21, 2026 | Drag ≡ to reorder exercises within a block, warm-up or cool-down. |
+| 1.6.0 | Nov 21, 2026 | Your own routines: create, copy, rename, reorder, delete. Rotation through all of them. |
+| 1.5.0 | Nov 21, 2026 | Exercise library (TRX, dumbbell, bodyweight, stretches) and Swap for another exercise. |
+| 1.4.0 | Nov 20, 2026 | Louder tones; sounds with the silent switch on; Test sound. |
+| 1.3.0 | Nov 20, 2026 | Sounds only, no voice. |
+| 1.2.0 | Nov 20, 2026 | Exercise thumbnails removed. |
+| 1.1.0 | Nov 20, 2026 | Muscle map drawings. |
+| 1.0.0 | Nov 20, 2026 | First version: Upper and Lower Body days, timed circuits, warm-up and cool-down, ratings with ↑/↓, Body and Log. |
+
+## Releasing a new version
+
+1. Bump `VERSION` and `RELEASED` in `engine.js`.
+2. Set the same version in `package.json` and in the `CACHE` name in `sw.js`.
+3. Add a row above.
+4. `npm test` checks that all four agree.

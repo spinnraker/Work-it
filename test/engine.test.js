@@ -347,3 +347,14 @@ test('audio mode defaults to mixing with music', () => {
   assert.equal(E.normalize({ days: {}, settings: { audioMode: 'silent' } }).state.settings.audioMode, 'silent');
   assert.equal(E.normalize({ days: {}, settings: { audioMode: 'weird' } }).state.settings.audioMode, 'mix');
 });
+
+test('the version agrees everywhere it appears', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const root = path.join(__dirname, '..');
+  assert.match(E.VERSION, /^\d+\.\d+\.\d+$/);
+  assert.match(E.RELEASED, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version, E.VERSION, 'package.json');
+  assert.ok(fs.readFileSync(path.join(root, 'sw.js'), 'utf8').includes(`const CACHE = 'workit-${E.VERSION}'`), 'sw.js CACHE');
+  assert.ok(fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8').includes(`**${E.VERSION}**`), 'CHANGELOG.md');
+});

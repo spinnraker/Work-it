@@ -16,6 +16,14 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
+  // ---------- version ----------
+  //
+  // Bump on every release, together with package.json, the CACHE name in sw.js
+  // and a line in CHANGELOG.md (a test checks they agree). A new cache name is
+  // what makes phones download the new files.
+  const VERSION = '1.10.0';
+  const RELEASED = '2026-11-23';
+
   // ---------- dates (local calendar days as YYYY-MM-DD) ----------
 
   const pad = (n) => String(n).padStart(2, '0');
@@ -920,6 +928,7 @@
   }
 
   return {
+    VERSION, RELEASED,
     toKey, fromKey, addDays, diffDays, weekday, weekStart,
     MUSCLES, MUSCLE_IDS, SEED_DAYS, SEED_VERSION, library, EQUIPMENT, filterLibrary, fromLibrary, defaultSettings, freshState, normalize, cleanItem, cleanWeight,
     clock, lb, describe, flatten, dayStats,
