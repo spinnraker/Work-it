@@ -305,3 +305,45 @@ test('interval lengths step finer when short, coarser when long', () => {
   assert.equal(E.stepSeconds(600, 1), 600);
   assert.equal(E.stepSeconds(15, -1), 15);
 });
+
+test('sound cues: countdown, halfway and the next step’s start, timed from now', () => {
+  const steps = [
+    { kind: 'ready', duration: 5, section: 'block' },
+    { kind: 'work', duration: 40, section: 'block' },
+    { kind: 'work', duration: 40, section: 'block' },
+    { kind: 'rest', duration: 15, section: 'block', label: 'Round rest' },
+    { kind: 'work', duration: 40, section: 'block' },
+  ];
+  // Get ready: 3-2-1 then go.
+  assert.deepEqual(E.stepCues(steps, 0), [
+    { at: 2, cue: 'tick' }, { at: 3, cue: 'tick' }, { at: 4, cue: 'tick' }, { at: 5, cue: 'go' },
+  ]);
+  // Work into work: halfway, countdown, then just "go" (no stop tone on top of it).
+  assert.deepEqual(E.stepCues(steps, 1).map((c) => c.cue), ['half', 'tick', 'tick', 'tick', 'go']);
+  // Work into a round rest: stop, then the round sound a beat later.
+  const end = E.stepCues(steps, 2).slice(-2);
+  assert.deepEqual(end, [{ at: 40, cue: 'stop' }, { at: 40.55, cue: 'round' }]);
+  // Resuming 30 s in: only what's still ahead, timed from now.
+  assert.deepEqual(E.stepCues(steps, 1, 30), [
+    { at: 7, cue: 'tick' }, { at: 8, cue: 'tick' }, { at: 9, cue: 'tick' }, { at: 10, cue: 'go' },
+  ]);
+  // Last step: countdown, nothing after (the finish chime handles the end).
+  assert.deepEqual(E.stepCues(steps, 4).map((c) => c.cue), ['half', 'tick', 'tick', 'tick']);
+  // Intro cards don't tick.
+  assert.deepEqual(E.stepCues([{ kind: 'intro', duration: 6 }, { kind: 'ready', duration: 5 }], 0), []);
+  assert.equal(E.enterCue({ kind: 'rest', label: 'Switch sides' }), 'sides');
+  assert.equal(E.enterCue({ kind: 'rest', label: 'Rest' }), null);
+});
+
+test('every step of a real workout gets its start sound exactly once', () => {
+  const steps = E.buildPlan(E.SEED_DAYS.conditioning);
+  const starts = steps.map((s) => E.enterCue(s)).filter(Boolean).length - (E.enterCue(steps[0]) ? 1 : 0);
+  const scheduled = steps.reduce((n, _, i) => n + E.stepCues(steps, i).filter((c) => c.cue !== 'tick' && c.cue !== 'half' && c.cue !== 'stop').length, 0);
+  assert.equal(scheduled, starts);
+});
+
+test('audio mode defaults to mixing with music', () => {
+  assert.equal(E.freshState().settings.audioMode, 'mix');
+  assert.equal(E.normalize({ days: {}, settings: { audioMode: 'silent' } }).state.settings.audioMode, 'silent');
+  assert.equal(E.normalize({ days: {}, settings: { audioMode: 'weird' } }).state.settings.audioMode, 'mix');
+});

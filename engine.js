@@ -381,6 +381,9 @@
   function defaultSettings() {
     return {
       tones: true,
+      // 'mix': cues play over your music (iPhone: needs the ringer on).
+      // 'silent': cues play with the ringer off, but music pauses.
+      audioMode: 'mix',
       repSeconds: 3, // pace for dynamic stretches
     };
   }
@@ -513,6 +516,7 @@
     const s = raw.settings && typeof raw.settings === 'object' ? raw.settings : {};
     const settings = {
       tones: s.tones !== false,
+      audioMode: s.audioMode === 'silent' ? 'silent' : 'mix',
       repSeconds: int(s.repSeconds, 2, 6, 3),
     };
     const sessions = [];
@@ -669,6 +673,53 @@
   }
 
   /** "Back": restart this work if well into it, else the previous work step, else stay. */
+  // ---------- sound cues ----------
+  //
+  // Each step's sounds are worked out ahead and scheduled on the audio clock,
+  // so they land on time even when the page is busy.
+
+  /** The sound that marks the start of a step, if any. */
+  function enterCue(step) {
+    if (!step) return null;
+    if (step.kind === 'intro') return 'tap';
+    if (step.kind === 'work') return 'go';
+    if (step.kind === 'rest' && step.label === 'Switch sides') return 'sides';
+    if (step.kind === 'rest' && step.label === 'Round rest') return 'round';
+    return null;
+  }
+
+  /**
+   * Sounds for step `i`, `elapsed` seconds in: { at: seconds from now, cue }.
+   * The last 3 seconds tick (not on intro cards), long block intervals get a
+   * halfway blip, and the step's end carries the next step's start sound. A
+   * work interval ends with the stop tone unless another one starts straight
+   * away, so back-to-back intervals get one clean "go" instead of two tones.
+   */
+  function stepCues(steps, i, elapsed = 0) {
+    const s = steps[i];
+    if (!s) return [];
+    const out = [];
+    const left = s.duration - elapsed;
+    if (s.kind !== 'intro' && s.duration >= 5) {
+      for (const n of [3, 2, 1]) {
+        const at = left - n;
+        if (at >= -0.05) out.push({ at: Math.max(0, at), cue: 'tick' });
+      }
+    }
+    if (s.kind === 'work' && s.section === 'block' && s.duration >= 30) {
+      const at = s.duration / 2 - elapsed;
+      if (at > 0.05) out.push({ at, cue: 'half' });
+    }
+    const next = steps[i + 1];
+    if (next) {
+      let at = Math.max(0, left);
+      if (s.kind === 'work' && next.kind !== 'work') { out.push({ at, cue: 'stop' }); at += 0.55; }
+      const c = enterCue(next);
+      if (c) out.push({ at, cue: c });
+    }
+    return out.sort((a, b) => a.at - b.at);
+  }
+
   function backTarget(steps, index, elapsedMs) {
     const cur = steps[index];
     if (!cur) return index;
@@ -872,7 +923,7 @@
     toKey, fromKey, addDays, diffDays, weekday, weekStart,
     MUSCLES, MUSCLE_IDS, SEED_DAYS, SEED_VERSION, library, EQUIPMENT, filterLibrary, fromLibrary, defaultSettings, freshState, normalize, cleanItem, cleanWeight,
     clock, lb, describe, flatten, dayStats,
-    INTRO_SECONDS, READY_SECONDS, buildPlan, workTargets, workDone, backTarget, estimateSeconds, sectionSeconds, summarize,
+    INTRO_SECONDS, READY_SECONDS, buildPlan, enterCue, stepCues, workTargets, workDone, backTarget, estimateSeconds, sectionSeconds, summarize,
     weightStep, stepSeconds, progress, trendFor, nextDay, nextInOrder, newRoutine, moveTo, dropIndex,
     workoutDays, weekStreak, weekCount, muscleReport, lastWeight,
   };

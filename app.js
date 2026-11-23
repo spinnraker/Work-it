@@ -175,14 +175,17 @@
 
   // ---------- cues: sounds, vibration, screen ----------
   //
-  // No voice: every cue is a short tone.
+  // No voice: every cue is a short tone, scheduled ahead on the audio clock so
+  // it lands on time (see E.stepCues).
   //
-  // iPhone mutes web audio when the ring/silent switch is on. Asking for a
-  // "playback" audio session (Safari 16.4+), or on older iOS keeping a silent
-  // <audio> element playing, moves the page to the media channel, which
-  // ignores the switch and follows the volume buttons instead.
+  // iPhone gives a web page two choices, and no way to have both:
+  //   'mix'    (default): an "ambient" audio session. Cues play over your music,
+  //            but iOS mutes them when the ring/silent switch is on silent.
+  //   'silent': a "playback" session (on older iOS, a looping silent <audio>
+  //            holds it). Cues play with the switch on silent, but other
+  //            audio such as music pauses, because iOS lets one player play at a time.
 
-  /** A one-second silent WAV, looped to hold the media audio session. */
+  /** A one-second silent WAV, looped to hold the playback session on older iOS. */
   function silentWav() {
     const rate = 8000;
     const n = rate;
@@ -202,26 +205,31 @@
     out: null,
     keeper: null,
     tones: true,
+    mode: 'mix',
+    live: new Set(), // scheduled oscillators, so pause/skip can silence them
 
     /** Must run inside a tap: iOS only allows audio after a user gesture. */
     unlock(opts) {
       this.tones = opts.tones;
+      this.mode = opts.audioMode === 'silent' ? 'silent' : 'mix';
       if (!this.tones) return;
       try {
-        if (navigator.audioSession) navigator.audioSession.type = 'playback';
-        else {
+        if (navigator.audioSession) navigator.audioSession.type = this.mode === 'silent' ? 'playback' : 'ambient';
+        if (this.mode === 'silent' && !navigator.audioSession) {
           if (!this.keeper) {
             this.keeper = new Audio(silentWav());
             this.keeper.loop = true;
             this.keeper.setAttribute('playsinline', '');
           }
           this.keeper.play().catch(() => {});
+        } else if (this.keeper) {
+          this.keeper.pause();
         }
       } catch (e) { /* not supported */ }
       try {
         const AC = window.AudioContext || window.webkitAudioContext;
         if (AC && !this.ctx) {
-          this.ctx = new AC();
+          this.ctx = new AC({ latencyHint: 'interactive' });
           // Even out loudness so short beeps cut through on a phone speaker.
           const comp = this.ctx.createDynamicsCompressor();
           comp.threshold.value = -18;
@@ -230,21 +238,25 @@
           this.out.gain.value = 1;
           this.out.connect(comp).connect(this.ctx.destination);
         }
-        if (this.ctx && this.ctx.state !== 'running') this.ctx.resume();
+        this.wake();
         // iOS starts the context only once something plays inside the tap.
         this.beep(440, 20, 0, 0.0002);
       } catch (e) { /* no audio */ }
     },
-    /** End of a workout: let the phone's music and audio session go back to normal. */
+    /** iOS suspends ("interrupts") the context after calls, Siri or other apps. */
+    wake() {
+      if (this.ctx && this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+    },
+    /** End of a workout: hand the audio session back. */
     release() {
+      this.cancel();
       if (this.keeper) this.keeper.pause();
       try { if (navigator.audioSession) navigator.audioSession.type = 'auto'; } catch (e) { /* ignore */ }
     },
     beep(freq, ms, delay = 0, vol = 0.5) {
       if (!this.tones || !this.ctx) return;
       try {
-        if (this.ctx.state !== 'running') this.ctx.resume();
-        const t = this.ctx.currentTime + delay;
+        const t = this.ctx.currentTime + Math.max(0, delay);
         const o = this.ctx.createOscillator();
         const g = this.ctx.createGain();
         o.type = 'triangle'; // brighter than a sine, still soft
@@ -254,21 +266,37 @@
         g.gain.setValueAtTime(vol, t + Math.max(0.012, ms / 1000 - 0.06));
         g.gain.exponentialRampToValueAtTime(0.0001, t + ms / 1000);
         o.connect(g).connect(this.out || this.ctx.destination);
+        o.onended = () => { this.live.delete(o); g.disconnect(); };
+        this.live.add(o);
         o.start(t);
         o.stop(t + ms / 1000 + 0.02);
       } catch (e) { /* ignore */ }
     },
-    buzz(p) { if (this.tones && navigator.vibrate) navigator.vibrate(p); },
+    /** Silence everything scheduled (pause, skip, back, end). */
+    cancel() {
+      for (const o of this.live) { try { o.onended = null; o.stop(); o.disconnect(); } catch (e) { /* already done */ } }
+      this.live.clear();
+    },
+    /** Schedule cues from E.stepCues: [{ at: seconds from now, cue }]. */
+    play(list) {
+      if (!this.tones || !this.ctx) return;
+      this.wake();
+      for (const { at, cue } of list) if (this[cue]) this[cue](at);
+    },
+    buzz(p, d = 0) {
+      if (!this.tones || !navigator.vibrate) return;
+      if (d > 0.05) setTimeout(() => navigator.vibrate(p), d * 1000); else navigator.vibrate(p);
+    },
     // Phone speakers are weak below ~500 Hz, so every cue sits above that.
-    go() { this.beep(1319, 380, 0, 0.7); this.buzz(60); },                              // work starts: one long high tone
-    stopTone() { this.beep(1047, 160); this.beep(784, 320, 0.18); this.buzz(30); },      // work ends: falling pair
-    tick() { this.beep(880, 110, 0, 0.45); },                                            // last 3 seconds of any timer
-    tap() { this.beep(784, 90, 0, 0.35); this.buzz(8); },                                // next exercise card
-    half() { this.beep(1568, 80); this.beep(1568, 80, 0.13); },                          // halfway: quick double blip
-    sides() { this.beep(659, 110); this.beep(659, 110, 0.18); this.buzz([20, 80, 20]); }, // switch sides: two taps
-    round() { this.beep(784, 160); this.beep(1175, 300, 0.18); },                        // new round: rising pair
-    done() { [784, 988, 1175, 1568].forEach((f, i) => this.beep(f, 240, i * 0.14)); },
-    test() { this.tick(); setTimeout(() => this.tick(), 500); setTimeout(() => this.go(), 1000); setTimeout(() => this.stopTone(), 1800); },
+    go(d = 0) { this.beep(1319, 380, d, 0.7); this.buzz(60, d); },                       // work starts: one long high tone
+    stop(d = 0) { this.beep(1047, 160, d); this.beep(784, 320, d + 0.18); this.buzz(30, d); }, // work ends: falling pair
+    tick(d = 0) { this.beep(880, 110, d, 0.45); },                                       // last 3 seconds of a timer
+    tap(d = 0) { this.beep(784, 90, d, 0.35); this.buzz(8, d); },                        // next exercise card
+    half(d = 0) { this.beep(1568, 80, d); this.beep(1568, 80, d + 0.13); },              // halfway: quick double blip
+    sides(d = 0) { this.beep(659, 110, d); this.beep(659, 110, d + 0.18); this.buzz([20, 80, 20], d); }, // switch sides
+    round(d = 0) { this.beep(784, 160, d); this.beep(1175, 300, d + 0.18); },            // new round: rising pair
+    done(d = 0) { [784, 988, 1175, 1568].forEach((f, i) => this.beep(f, 240, d + i * 0.14)); },
+    test() { this.play([{ at: 0, cue: 'tick' }, { at: 0.5, cue: 'tick' }, { at: 1, cue: 'tick' }, { at: 1.5, cue: 'go' }, { at: 2.6, cue: 'stop' }]); },
   };
 
   let wakeLock = null;
@@ -318,7 +346,6 @@
       stepStart: now,
       pausedAt: fresh ? null : now,
       reenter: !fresh,
-      spoken: new Set(),
       lastTick: now,
       done: new Set(a.done),
       activeMs: a.activeMs,
@@ -331,7 +358,7 @@
     document.body.style.overflow = 'hidden';
     lockScreen();
     R.timer = setInterval(tick, 100);
-    if (fresh) enterStep(0, now);
+    if (fresh) enterStep(0, now, false);
     else renderRun();
   }
 
@@ -351,25 +378,31 @@
 
   function itemOf(step) { return R.flat[step.ex].item; }
 
-  function announce(i) {
-    const step = R.steps[i];
-    switch (step.kind) {
-      case 'intro': Cues.tap(); break;
-      case 'work': Cues.go(); break;
-      case 'rest':
-        if (step.label === 'Switch sides') Cues.sides();
-        else if (step.label === 'Round rest') Cues.round();
-        break;
-    }
+  /** Schedule the rest of the current step's sounds, from where it is now. */
+  function scheduleCues() {
+    if (!R || R.finished || R.pausedAt != null) return;
+    const step = R.steps[R.index];
+    if (!step) return;
+    const elapsed = Math.max(0, (Date.now() - R.stepStart) / 1000);
+    Cues.play(E.stepCues(R.steps, R.index, elapsed));
   }
 
-  function enterStep(i, startAt) {
+  /**
+   * natural: the previous step ran out, so this step's start sound was already
+   * scheduled at the right moment. Otherwise (skip, back, resume) clear what
+   * was scheduled and play the start sound now.
+   */
+  function enterStep(i, startAt, natural) {
     if (i >= R.steps.length) { finish('completed'); return; }
     R.index = i;
     R.stepStart = startAt;
-    R.spoken.clear();
     R.reenter = false;
-    announce(i);
+    if (!natural) {
+      Cues.cancel();
+      const c = E.enterCue(R.steps[i]);
+      if (c) Cues.play([{ at: 0, cue: c }]);
+    }
+    scheduleCues();
     persist();
     renderRun();
   }
@@ -378,17 +411,14 @@
     if (!R || R.finished) return;
     const step = R.steps[R.index];
     const now = Date.now();
-    if (natural && step.kind === 'work') {
-      R.done.add(R.index);
-      if (R.index + 1 < R.steps.length) Cues.stopTone();
-    }
+    if (natural && step.kind === 'work') R.done.add(R.index);
     // Chain from the scheduled end so timing doesn't drift, unless we're well behind.
     let startAt = now;
     if (natural) {
       const end = R.stepStart + step.duration * 1000;
       if (now - end < 1000) startAt = end;
     }
-    enterStep(R.index + 1, startAt);
+    enterStep(R.index + 1, startAt, natural);
   }
 
   function tick() {
@@ -399,14 +429,6 @@
     const step = R.steps[R.index];
     if (!step) return;
     const remaining = step.duration * 1000 - (now - R.stepStart);
-    const left = Math.ceil(remaining / 1000);
-    const once = (key, fn) => { if (!R.spoken.has(key)) { R.spoken.add(key); fn(); } };
-    // Count into the work, and out of it.
-    if (step.duration >= 5 && left >= 1 && left <= 3 && step.kind !== 'intro') once(`c${left}`, () => Cues.tick());
-    if (step.kind === 'work' && step.section === 'block' && step.duration >= 30) {
-      const half = Math.ceil(step.duration / 2);
-      if (left === half) once('half', () => Cues.half());
-    }
     if (remaining <= 0) completeStep(true);
     else updateClock(remaining, step.duration * 1000);
     const el = document.getElementById('elapsed');
@@ -418,6 +440,7 @@
     const now = Date.now();
     accrue(now);
     R.pausedAt = now;
+    Cues.cancel();
     persist();
     renderRun();
   }
@@ -430,8 +453,8 @@
     R.pausedAt = null;
     R.lastTick = now;
     lockScreen();
-    if (R.reenter) enterStep(R.index, now);
-    else { R.stepStart += pausedFor; renderRun(); }
+    if (R.reenter) enterStep(R.index, now, false);
+    else { R.stepStart += pausedFor; Cues.cancel(); scheduleCues(); renderRun(); }
   }
 
   function unpauseForJump() {
@@ -452,7 +475,7 @@
     const target = E.backTarget(R.steps, R.index, R.reenter ? 0 : elapsed);
     for (const i of [...R.done]) if (i >= target) R.done.delete(i);
     unpauseForJump();
-    enterStep(target, Date.now());
+    enterStep(target, Date.now(), false);
   }
 
   function finish(status) {
@@ -464,6 +487,7 @@
     const sum = E.summarize(a.snapshot, R.steps, [...R.done], status, R.index);
     const durationSec = Math.round(R.activeMs / 1000);
     state.active = null;
+    Cues.cancel();
     if (status === 'completed') Cues.done();
     closeRun();
     if (!sum.results.some((r) => r.done > 0)) {
@@ -1327,8 +1351,13 @@
     return `<div class="sheet-top"><span></span><button class="done" data-action="close">Done</button></div>
       <h1 id="sheet-title" class="detail-name" tabindex="-1">Settings</h1>
       <div class="field"><span>Sounds</span>${seg('tones', s.tones ? 'on' : 'off', [['on', 'On'], ['off', 'Off']])}
-        <div class="form-actions" style="margin-top:14px"><button class="btn ghost block" data-action="test-sound">Test sound</button></div>
-        <p class="hint">Plays with the silent switch on; use the volume buttons. Ticks count down the last 3 seconds. A long high tone starts each interval, a falling pair ends it. Two blips at halfway, a rising pair for a new round, two low taps to switch sides.</p></div>
+        <p class="hint">Ticks count down the last 3 seconds. A long high tone starts each interval, a falling pair ends it. Two blips at halfway, a rising pair for a new round, two low taps to switch sides.</p></div>
+      <div class="field"><span>With music</span>${seg('audioMode', s.audioMode, [['mix', 'Play over music'], ['silent', 'Play on silent']])}
+        <p class="hint">${s.audioMode === 'mix'
+          ? '<b>Play over music:</b> your music keeps playing and the cues play on top. On iPhone, flip the side switch to ring (no orange showing) or the cues are muted.'
+          : '<b>Play on silent:</b> cues play even with the side switch on silent, but iPhone pauses your music during a workout. It comes back when you finish.'}
+        iPhone only lets a web app do one or the other.</p>
+        <div class="form-actions" style="margin-top:14px"><button class="btn ghost block" data-action="test-sound">Test sound</button></div></div>
       <div class="field"><span>Dynamic stretch pace</span>${stepper('repSeconds', s.repSeconds, 'pace', 2, 6, (v) => `${v} s per rep`)}</div>
       <div class="section-label">Data</div>
       <div class="rows">
@@ -1383,9 +1412,14 @@
     if (sheet.type === 'settings') {
       const s = state.settings;
       if (field === 'tones') s.tones = value === 'on';
+      if (field === 'audioMode') s.audioMode = value === 'silent' ? 'silent' : 'mix';
       save();
       renderSheet();
-      if (field === 'tones' && s.tones) { Cues.unlock(s); Cues.go(); }
+      if (s.tones && (field === 'tones' || field === 'audioMode')) {
+        Cues.unlock(s);
+        Cues.go();
+        setTimeout(() => { if (!R) Cues.release(); }, 1500);
+      }
       return;
     }
     if (sheet.type === 'section') {
