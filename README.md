@@ -36,13 +36,22 @@ No dependencies and no build step. To put it on your iPhone, host the folder on 
 
 | Block | What |
 |---|---|
-| Warm-up | Inchworm · Push-Up to Downward Dog · Tabletop Cat Cow · Alt. World’s Greatest Stretch · Scapular Pull-Up (0:40 each) · Jog (1:30) |
-| Run | 7:00 steady, about 0.7–0.9 miles |
+| Warm-up | Inchworm · Push-Up to Downward Dog · Tabletop Cat Cow · Alt. World’s Greatest Stretch · Scapular Pull-Up (0:40 each) · Easy Row (1:30) |
+| Row | 7:00 steady on the rowing machine; note your distance |
 | Conditioning | AMRAP 6:00: 8 Pull-Ups · 8 Burpees · 8 Squats (count your rounds) |
 | Strength | Alt. KB Goblet Forward Lunge · KB High Pull · KB Goblet Squat · Russian KB Swing · KB High Plank Drag (1:00 each) |
 | Cool-down | Child’s Pose · Tabletop Thread the Needle · Lizard · Half Split (0:45 per side) |
 
 If you already had the app, Conditioning is added once to the end of your routines; delete it and it stays deleted. Set kettlebell weights with ⋯ on each move.
+
+**Upper Body Day B** and **Lower Body Day B**: same shape as the A days, different moves, for variety. Alternate them with the A days.
+
+| Day | Warm-up | Timed intervals · 3 rounds | Cool-down |
+|---|---|---|---|
+| Upper B (≈33 min) | Forward Arm Circle · Thread the Needle · Inchworm | TRX Row · Incline Dumbbell Press 15 lb · Bent-Over Dumbbell Row 15 lb · Arnold Press 10 lb / Hammer Curl 15 lb · Overhead Triceps Extension 12.5 lb / Renegade Row 10 lb · Dead Bug | Doorway Chest · Cross-Body Shoulder · Overhead Triceps · Standing Side Bend |
+| Lower B (≈31 min) | Leg Swing · World’s Greatest Stretch | Goblet Squat 15 lb · Dumbbell Romanian Deadlift 15 lb · Dumbbell Step Up 5 lb · Dumbbell Hip Thrust 20 lb / TRX Hamstring Curl · TRX Crossing Balance Lunge · Side Plank | Pigeon Pose · Seated Hamstring · Lizard Hold · Cobra |
+
+**No running.** Cardio is on the rowing machine: Conditioning’s warm-up jog is an Easy Row and its run is a 7:00 Row. Saved routines from earlier versions were switched over too (any interval named Run or Jog), keeping your times.
 
 **Mobility**: about 30 minutes on a mat, no equipment. Reps and breaths are timed at roughly 8 seconds each, with 5 s to change position.
 
@@ -99,7 +108,7 @@ Editing an exercise shows the weight you used last time.
 
 - **⋯ on an exercise**: name, muscles, interval length, weight (or sets, hold, reps and sides for stretches), a one-line form cue, move up/down, remove, or **Swap for another exercise** (opens the library on the same muscle; the new one keeps the spot and interval length).
 - **Drag ≡** on an exercise to reorder it within its block, warm-up or cool-down. The page scrolls when you drag near the top or bottom. With a keyboard, focus ≡ and use the arrow keys.
-- **⋯ on a block**: a name ("Strength", "Run"), rounds, rest between exercises, rest between rounds, set every interval in the block at once, move or delete the block.
+- **⋯ on a block**: a name ("Strength", "Row"), rounds, rest between exercises, rest between rounds, set every interval in the block at once, move or delete the block.
 - **⋯ on Warm-up / Cool-down**: turn it off for the workout, add a stretch.
 - **Add exercise** opens the exercise library. Choose where it goes (warm-up, a block, a new block, or cool-down), then tap as many as you want. Or **Make your own**.
 

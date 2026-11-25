@@ -77,7 +77,7 @@ test('turning the warm-up or cool-down off removes it from the plan', () => {
 });
 
 test('a 30-minute day lands near 30 minutes', () => {
-  for (const id of ['upper', 'lower', 'conditioning', 'mobility']) {
+  for (const id of ['upper', 'lower', 'conditioning', 'mobility', 'lower-b']) {
     const min = E.estimateSeconds(E.buildPlan(E.SEED_DAYS[id])) / 60;
     assert.ok(min > 20 && min < 40, `${id}: ${min}`);
   }
@@ -154,10 +154,10 @@ test('normalize keeps custom routines and their order, and migrates old data', (
   const s = E.freshState();
   const full = E.newRoutine('Full Body', null, s.days);
   s.days[full.id] = full;
-  s.order = [full.id, 'upper', 'lower', 'conditioning', 'mobility'];
+  s.order = [full.id, 'upper', 'lower', 'conditioning', 'mobility', 'upper-b', 'lower-b'];
   s.current = full.id;
   const { state } = E.normalize(clone(s));
-  assert.deepEqual(state.order, [full.id, 'upper', 'lower', 'conditioning', 'mobility']);
+  assert.deepEqual(state.order, [full.id, 'upper', 'lower', 'conditioning', 'mobility', 'upper-b', 'lower-b']);
   assert.equal(state.days[full.id].name, 'Full Body');
   assert.equal(state.current, full.id);
   // Data saved before routines existed: no order, upper/lower only.
@@ -166,9 +166,11 @@ test('normalize keeps custom routines and their order, and migrates old data', (
   delete old.seedVersion;
   delete old.days.conditioning;
   delete old.days.mobility;
+  delete old.days['upper-b'];
+  delete old.days['lower-b'];
   old.current = 'lower';
   const m = E.normalize(old).state;
-  assert.deepEqual(m.order, ['upper', 'lower', 'conditioning', 'mobility']); // new built-ins added once
+  assert.deepEqual(m.order, ['upper', 'lower', 'conditioning', 'mobility', 'upper-b', 'lower-b']); // new built-ins added once
   assert.equal(m.seedVersion, E.SEED_VERSION);
   assert.equal(m.current, 'lower');
   // Bad ids are dropped; a missing current falls back to the first routine.
@@ -277,13 +279,14 @@ test('reordering: move an item, and where a dragged row lands', () => {
 
 test('the Conditioning routine: named one-round blocks, about 30 minutes', () => {
   const d = E.SEED_DAYS.conditioning;
-  assert.deepEqual(d.blocks.map((b) => b.name), ['Warm-up', 'Run', 'Conditioning', 'Strength']);
+  assert.deepEqual(d.blocks.map((b) => b.name), ['Warm-up', 'Row', 'Conditioning', 'Strength']);
   assert.ok(d.blocks.every((b) => b.rounds === 1));
   assert.equal(d.cooldown.length, 4);
   const min = E.estimateSeconds(E.buildPlan(d)) / 60;
   assert.ok(min > 28 && min < 32, String(min));
-  const run = d.blocks[1].items[0];
-  assert.equal(E.describe(run, 1), '7:00');
+  const row = d.blocks[1].items[0];
+  assert.equal(row.name, 'Row');
+  assert.equal(E.describe(row, 1), '7:00');
   // The AMRAP isn't offered in the library; the kettlebell moves are.
   const lib = E.library();
   assert.ok(!lib.some((x) => x.name.startsWith('AMRAP')));
@@ -291,10 +294,10 @@ test('the Conditioning routine: named one-round blocks, about 30 minutes', () =>
   // Deleting it sticks: data already at this seed version doesn't get it back.
   const s = clone(E.freshState());
   delete s.days.conditioning;
-  s.order = ['upper', 'lower', 'mobility'];
-  assert.deepEqual(E.normalize(s).state.order, ['upper', 'lower', 'mobility']);
+  s.order = ['upper', 'lower', 'mobility', 'upper-b', 'lower-b'];
+  assert.deepEqual(E.normalize(s).state.order, ['upper', 'lower', 'mobility', 'upper-b', 'lower-b']);
   // Block names survive a save.
-  assert.equal(E.normalize(clone(E.freshState())).state.days.conditioning.blocks[1].name, 'Run');
+  assert.equal(E.normalize(clone(E.freshState())).state.days.conditioning.blocks[1].name, 'Row');
 });
 
 test('interval lengths step finer when short, coarser when long', () => {
@@ -372,10 +375,12 @@ test('the Mobility routine: five named blocks, about 30 minutes, added once to e
   // Data saved at 1.10 (seed version 2) gets Mobility, and keeps its own order and Conditioning as-is.
   const s = clone(E.freshState());
   delete s.days.mobility;
+  delete s.days['upper-b'];
+  delete s.days['lower-b'];
   s.seedVersion = 2;
   s.order = ['lower', 'conditioning', 'upper'];
   const n = E.normalize(s).state;
-  assert.deepEqual(n.order, ['lower', 'conditioning', 'upper', 'mobility']);
+  assert.deepEqual(n.order, ['lower', 'conditioning', 'upper', 'mobility', 'upper-b', 'lower-b']);
   assert.equal(n.days.mobility.name, 'Mobility');
   // Every library entry is still valid with the new moves in it.
   const lib = E.library();
@@ -419,4 +424,63 @@ test('4-week weight suggestion', () => {
   // holdUntil survives a save.
   assert.equal(E.cleanItem({ ...item, holdUntil: '2026-12-23' }, 'interval').holdUntil, '2026-12-23');
   assert.equal(E.cleanItem({ ...item, holdUntil: 'soon' }, 'interval').holdUntil, null);
+});
+
+test('Upper and Lower Body Day B: library moves, same muscles as their A days, no repeats from A', () => {
+  const ub = E.SEED_DAYS['upper-b'];
+  const lb = E.SEED_DAYS['lower-b'];
+  assert.equal(ub.name, 'Upper Body Day B');
+  assert.equal(lb.name, 'Lower Body Day B');
+  const names = (d) => d.blocks.flatMap((b) => b.items).map((it) => it.name);
+  assert.deepEqual(names(ub), ['TRX Row', 'Incline Dumbbell Press', 'Bent-Over Dumbbell Row', 'Arnold Press', 'Hammer Curl', 'Overhead Triceps Extension', 'Renegade Row', 'Dead Bug']);
+  assert.deepEqual(names(lb), ['Goblet Squat', 'Dumbbell Romanian Deadlift', 'Dumbbell Step Up', 'Dumbbell Hip Thrust', 'TRX Hamstring Curl', 'TRX Crossing Balance Lunge', 'Side Plank']);
+  for (const [b, a] of [[ub, E.SEED_DAYS.upper], [lb, E.SEED_DAYS.lower]]) {
+    const all = (d) => E.flatten(d, { all: true }).map((f) => f.item);
+    assert.deepEqual(new Set(all(b).map((x) => x.id)).size, all(b).length, 'unique ids');
+    const aNames = new Set(names(a));
+    assert.ok(names(b).every((n) => !aNames.has(n)), 'no interval repeats from day A');
+    const aMuscles = new Set(E.dayStats(a).muscleIds.filter((m) => m !== 'lower-back'));
+    assert.ok([...aMuscles].every((m) => E.dayStats(b).muscleIds.includes(m)), `${b.name} covers ${[...aMuscles]}`);
+  }
+  // Starting weights as agreed.
+  const w = (d, n) => d.blocks.flatMap((b) => b.items).find((it) => it.name === n).weight;
+  assert.equal(w(lb, 'Goblet Squat'), 15);
+  assert.equal(w(lb, 'Dumbbell Step Up'), 5);
+  assert.equal(w(lb, 'Dumbbell Hip Thrust'), 20);
+  assert.equal(w(ub, 'Incline Dumbbell Press'), 15);
+  assert.ok(!names(lb).includes('Bulgarian Split Squat'));
+  // Both survive a save.
+  const st = E.normalize(clone(E.freshState())).state;
+  assert.equal(st.days['lower-b'].blocks[0].items[2].name, 'Dumbbell Step Up');
+});
+
+test('no running: saved routines switch Run and Jog to the rower, keeping their times', () => {
+  // Conditioning as saved by 1.12, plus a custom routine with a run in it.
+  const s = clone(E.freshState());
+  s.seedVersion = 3;
+  delete s.days['upper-b'];
+  delete s.days['lower-b'];
+  const c = s.days.conditioning;
+  c.blocks[0].items[5] = { id: 'jog', name: 'Jog', kind: 'interval', seconds: 120, muscles: ['quads', 'calves'] };
+  c.blocks[1] = { id: 'c-run', name: 'Run', rounds: 1, rest: 0, roundRest: 0, items: [{ id: 'run', name: 'Run', kind: 'interval', seconds: 480, muscles: ['quads'] }] };
+  s.days['r-mine'] = { name: 'Mine', warmup: [], cooldown: [], blocks: [{ rounds: 2, items: [{ id: 'x', name: 'run', kind: 'interval', seconds: 300, muscles: ['quads'] }, { id: 'y', name: 'Running Lunge', kind: 'interval', seconds: 45, muscles: ['quads'] }] }] };
+  s.order.push('r-mine');
+  const n = E.normalize(s).state;
+  const cc = n.days.conditioning;
+  assert.equal(cc.blocks[0].items[5].name, 'Easy Row');
+  assert.equal(cc.blocks[0].items[5].seconds, 120, 'your time is kept');
+  assert.equal(cc.blocks[1].name, 'Row');
+  assert.equal(cc.blocks[1].items[0].name, 'Row');
+  assert.equal(cc.blocks[1].items[0].seconds, 480);
+  assert.equal(n.days['r-mine'].blocks[0].items[0].name, 'Row');
+  assert.equal(n.days['r-mine'].blocks[0].items[1].name, 'Running Lunge', 'only exact Run/Jog');
+  assert.ok(n.days['upper-b'] && n.days['lower-b']);
+  // Already converted data isn't touched again (a later "Run" you add yourself stays).
+  const later = clone(n);
+  later.days['r-mine'].blocks[0].items[0].name = 'Run';
+  assert.equal(E.normalize(later).state.days['r-mine'].blocks[0].items[0].name, 'Run');
+  // Nothing in any built-in routine or the library runs.
+  for (const d of Object.values(E.SEED_DAYS)) assert.ok(E.flatten(d, { all: true }).every((f) => !/^(run|jog)$/i.test(f.item.name)), d.name);
+  assert.ok(!E.library().some((x) => /^(run|jog)$/i.test(x.name)));
+  assert.deepEqual(E.library().filter((x) => x.equipment === 'rower').map((x) => x.name), ['Easy Row', 'Row']);
 });

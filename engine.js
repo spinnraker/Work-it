@@ -21,8 +21,8 @@
   // Bump on every release, together with package.json, the CACHE name in sw.js
   // and a line in CHANGELOG.md (a test checks they agree). A new cache name is
   // what makes phones download the new files.
-  const VERSION = '1.12.0';
-  const RELEASED = '2026-11-25';
+  const VERSION = '1.13.0';
+  const RELEASED = '2026-11-26';
 
   // ---------- dates (local calendar days as YYYY-MM-DD) ----------
 
@@ -86,6 +86,16 @@
     sets: 2, seconds: 15, reps: 8, weight: null, sides: 'none', cue: '', trend: null,
     ...extra,
   });
+  // Rowing machine (in place of running: there's a rower, not a run).
+  const ROW_EASY = {
+    id: 'row-easy', name: 'Easy Row', muscles: ['quads', 'lats'], kind: 'interval', sets: 2, seconds: 90, reps: 8, weight: null, sides: 'none', trend: null,
+    cue: 'Easy pace, about 20 strokes a minute. Legs, lean back, then arms.', equipment: 'rower',
+  };
+  const ROW_STEADY = {
+    id: 'row', name: 'Row', muscles: ['quads', 'glutes', 'lats'], kind: 'interval', sets: 2, seconds: 420, reps: 8, weight: null, sides: 'none', trend: null,
+    cue: 'Steady pace you can hold, about 24–26 strokes a minute. Note your distance at the end.', equipment: 'rower',
+  };
+
   // Mobility moves: timed intervals with no equipment (mat optional).
   const M = (id, name, muscles, seconds, cue) => ({
     id, name, muscles, kind: 'interval', sets: 2, seconds, reps: 8, weight: null, sides: 'none', cue, trend: null, equipment: 'bodyweight',
@@ -186,14 +196,12 @@
             I('tabletop-cat-cow', 'Tabletop Cat Cow', ['lower-back'], null, 'On hands and knees. Round the back up, then let the belly drop.', { seconds: 40, equipment: 'bodyweight' }),
             I('alt-worlds-greatest', 'Alt. World’s Greatest Stretch', ['quads', 'hamstrings'], null, 'Lunge, elbow to the instep, rotate the arm to the ceiling. Alternate sides.', { seconds: 40, equipment: 'bodyweight' }),
             I('scapular-pull-up', 'Scapular Pull-Up', ['lats'], null, 'Hang with straight arms. Pull the shoulder blades down and together, then release.', { seconds: 40, equipment: 'bodyweight' }),
-            I('jog', 'Jog', ['quads', 'calves'], null, 'Easy pace. Get the heart rate up.', { seconds: 90, equipment: 'bodyweight' }),
+            ROW_EASY,
           ],
         },
         {
-          id: 'c-run', name: 'Run', rounds: 1, rest: 0, roundRest: 0,
-          items: [
-            I('run', 'Run', ['quads', 'hamstrings', 'calves'], null, 'Steady, about your one-mile pace. Roughly 0.7 to 0.9 miles.', { seconds: 420, equipment: 'bodyweight' }),
-          ],
+          id: 'c-run', name: 'Row', rounds: 1, rest: 0, roundRest: 0,
+          items: [ROW_STEADY],
         },
         {
           id: 'c-amrap', name: 'Conditioning', rounds: 1, rest: 0, roundRest: 0,
@@ -276,8 +284,8 @@
   };
 
   /** Bumped when a built-in routine is added; existing data gets it once. */
-  const SEED_VERSION = 3;
-  const SEED_ADDED = { conditioning: 2, mobility: 3 };
+  const SEED_VERSION = 4;
+  const SEED_ADDED = { conditioning: 2, mobility: 3, 'upper-b': 4, 'lower-b': 4 };
 
   // ---------- library ----------
   //
@@ -389,6 +397,108 @@
     ST('calf-stretch', 'Wall Calf Stretch', ['calves'], 'Hands on a wall, back heel down, lean in.', { sides: 'each' }),
   ];
 
+  // ---------- B days ----------
+  //
+  // Second Upper and Lower days for variety, built from library entries so
+  // they share cues and starting weights. Same shape as the A days.
+
+  function fromLib(prefix, name, over = {}) {
+    const pool = [...EXTRA, ...Object.values(SEED_DAYS).flatMap((d) => [...d.warmup, ...d.blocks.flatMap((b) => b.items), ...d.cooldown])];
+    const x = pool.find((y) => y.name === name);
+    if (!x) throw new Error(`Not in the library: ${name}`);
+    return { ...JSON.parse(JSON.stringify(x)), id: `${prefix}-${x.id}`, trend: null, ...over };
+  }
+  const block = (id, items) => ({ id, rounds: 3, rest: 15, roundRest: 30, items });
+
+  SEED_DAYS['upper-b'] = {
+    id: 'upper-b',
+    name: 'Upper Body Day B',
+    warmupOn: true,
+    cooldownOn: true,
+    warmup: [
+      fromLib('ub', 'Forward Arm Circle'),
+      fromLib('ub', 'Thread the Needle', { sets: 2, seconds: 15 }),
+      fromLib('ub', 'Inchworm'),
+    ],
+    blocks: [
+      block('ub-b1', [
+        fromLib('ub', 'TRX Row'),
+        fromLib('ub', 'Incline Dumbbell Press', { weight: 15 }),
+        fromLib('ub', 'Bent-Over Dumbbell Row', { weight: 15 }),
+        fromLib('ub', 'Arnold Press', { weight: 10 }),
+      ]),
+      block('ub-b2', [
+        fromLib('ub', 'Hammer Curl', { weight: 15 }),
+        fromLib('ub', 'Overhead Triceps Extension', { weight: 12.5 }),
+      ]),
+      block('ub-b3', [
+        fromLib('ub', 'Renegade Row', { weight: 10 }),
+        fromLib('ub', 'Dead Bug'),
+      ]),
+    ],
+    cooldown: [
+      fromLib('ub', 'Doorway Chest Stretch'),
+      fromLib('ub', 'Cross-Body Shoulder Stretch'),
+      fromLib('ub', 'Overhead Triceps Stretch'),
+      fromLib('ub', 'Standing Side Bend'),
+    ],
+  };
+
+  SEED_DAYS['lower-b'] = {
+    id: 'lower-b',
+    name: 'Lower Body Day B',
+    warmupOn: true,
+    cooldownOn: true,
+    warmup: [
+      fromLib('lb', 'Leg Swing'),
+      fromLib('lb', 'World’s Greatest Stretch'),
+    ],
+    blocks: [
+      block('lb-b1', [
+        fromLib('lb', 'Goblet Squat', { weight: 15 }),
+        fromLib('lb', 'Dumbbell Romanian Deadlift', { weight: 15 }),
+        fromLib('lb', 'Dumbbell Step Up', { weight: 5, cue: 'Step onto the bench, drive through the top foot, step down slowly. Alternate legs.' }),
+        fromLib('lb', 'Dumbbell Hip Thrust', { weight: 20 }),
+      ]),
+      block('lb-b2', [
+        fromLib('lb', 'TRX Hamstring Curl'),
+        fromLib('lb', 'TRX Crossing Balance Lunge'),
+        fromLib('lb', 'Side Plank'),
+      ]),
+    ],
+    cooldown: [
+      fromLib('lb', 'Pigeon Pose'),
+      fromLib('lb', 'Seated Hamstring Stretch'),
+      fromLib('lb', 'Lizard Hold'),
+      fromLib('lb', 'Cobra'),
+    ],
+  };
+
+  // ---------- no running: rowing instead ----------
+
+  /**
+   * Data saved before the switch to rowing: turn any "Run" / "Jog" interval in
+   * any routine into Row / Easy Row (keeping its time), and a block named
+   * "Run" into "Row". Returns how many were changed.
+   */
+  function runningToRowing(days) {
+    let n = 0;
+    for (const d of Object.values(days)) {
+      for (const b of d.blocks) {
+        if (/^run$/i.test(b.name || '')) b.name = 'Row';
+        b.items = b.items.map((it) => {
+          const easy = /^jog$/i.test(it.name);
+          if (!easy && !/^run$/i.test(it.name)) return it;
+          n++;
+          const row = JSON.parse(JSON.stringify(easy ? ROW_EASY : ROW_STEADY));
+          delete row.equipment;
+          return { ...row, id: it.id, seconds: it.seconds };
+        });
+      }
+    }
+    return n;
+  }
+
   const STRETCH_KINDS = new Set(['static', 'dynamic']);
 
   /**
@@ -409,7 +519,7 @@
     return all.map((x) => JSON.parse(JSON.stringify(x)));
   }
 
-  const EQUIPMENT = { trx: 'TRX', dumbbell: 'Dumbbell', kettlebell: 'Kettlebell', bodyweight: 'Bodyweight', stretch: 'Stretch' };
+  const EQUIPMENT = { trx: 'TRX', dumbbell: 'Dumbbell', kettlebell: 'Kettlebell', rower: 'Rower', bodyweight: 'Bodyweight', stretch: 'Stretch' };
 
   /**
    * Filter the library. kind: 'interval' (TRX, dumbbell, bodyweight) or 'stretch'.
@@ -578,6 +688,7 @@
     if (!Object.keys(days).length) days = base.days;
     // Built-in routines added since this data was saved (once; deleting one later sticks).
     else for (const [id, v] of Object.entries(SEED_ADDED)) if (v > seedVersion && !days[id]) days[id] = JSON.parse(JSON.stringify(SEED_DAYS[id]));
+    if (seedVersion < 4) runningToRowing(days);
     // Rotation order: the saved order first, then any routine it's missing.
     const order = (Array.isArray(raw.order) ? raw.order : []).filter((id, k, a) => days[id] && a.indexOf(id) === k);
     for (const id of Object.keys(days)) if (!order.includes(id)) order.push(id);
@@ -1029,6 +1140,7 @@
     MUSCLES, MUSCLE_IDS, SEED_DAYS, SEED_VERSION, library, EQUIPMENT, filterLibrary, fromLibrary, defaultSettings, freshState, normalize, cleanItem, cleanWeight,
     clock, lb, describe, flatten, dayStats,
     INTRO_SECONDS, READY_SECONDS, buildPlan, enterCue, stepCues, workTargets, workDone, backTarget, estimateSeconds, sectionSeconds, summarize,
+    runningToRowing,
     weightStep, stepSeconds, progress, weightSuggestion, PROGRESS_DAYS, trendFor, nextDay, nextInOrder, newRoutine, moveTo, dropIndex,
     workoutDays, weekStreak, weekCount, muscleReport, lastWeight,
   };

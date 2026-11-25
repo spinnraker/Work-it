@@ -1107,7 +1107,7 @@
     const swap = sheet.mode === 'swap';
     const target = swap ? list(sheet.sec, sheet.b)[sheet.i] : null;
     const chip = (action, value, label, on) => `<button class="chip" data-action="${action}" data-value="${esc(value)}" aria-pressed="${on}">${esc(label)}</button>`;
-    const eqs = sheet.kind === 'interval' ? [['', 'All'], ['trx', 'TRX'], ['dumbbell', 'Dumbbell'], ['kettlebell', 'Kettlebell'], ['bodyweight', 'Bodyweight']] : [];
+    const eqs = sheet.kind === 'interval' ? [['', 'All'], ['trx', 'TRX'], ['dumbbell', 'Dumbbell'], ['kettlebell', 'Kettlebell'], ['rower', 'Rower'], ['bodyweight', 'Bodyweight']] : [];
     const muscles = E.MUSCLE_IDS.filter((m) => LIB.some((x) => x.muscles.includes(m) && (sheet.kind === 'stretch') === (x.equipment === 'stretch')));
     return `<div class="sheet-top">${swap ? '<button data-action="close">Cancel</button><span></span>' : '<span></span><button class="done" data-action="close">Done</button>'}</div>
       <h1 id="sheet-title" class="detail-name" tabindex="-1">${swap ? `Swap ${esc(target.name)}` : 'Exercise library'}</h1>
