@@ -77,7 +77,7 @@ test('turning the warm-up or cool-down off removes it from the plan', () => {
 });
 
 test('a 30-minute day lands near 30 minutes', () => {
-  for (const id of ['upper', 'lower', 'conditioning']) {
+  for (const id of ['upper', 'lower', 'conditioning', 'mobility']) {
     const min = E.estimateSeconds(E.buildPlan(E.SEED_DAYS[id])) / 60;
     assert.ok(min > 20 && min < 40, `${id}: ${min}`);
   }
@@ -154,10 +154,10 @@ test('normalize keeps custom routines and their order, and migrates old data', (
   const s = E.freshState();
   const full = E.newRoutine('Full Body', null, s.days);
   s.days[full.id] = full;
-  s.order = [full.id, 'upper', 'lower', 'conditioning'];
+  s.order = [full.id, 'upper', 'lower', 'conditioning', 'mobility'];
   s.current = full.id;
   const { state } = E.normalize(clone(s));
-  assert.deepEqual(state.order, [full.id, 'upper', 'lower', 'conditioning']);
+  assert.deepEqual(state.order, [full.id, 'upper', 'lower', 'conditioning', 'mobility']);
   assert.equal(state.days[full.id].name, 'Full Body');
   assert.equal(state.current, full.id);
   // Data saved before routines existed: no order, upper/lower only.
@@ -165,9 +165,10 @@ test('normalize keeps custom routines and their order, and migrates old data', (
   delete old.order;
   delete old.seedVersion;
   delete old.days.conditioning;
+  delete old.days.mobility;
   old.current = 'lower';
   const m = E.normalize(old).state;
-  assert.deepEqual(m.order, ['upper', 'lower', 'conditioning']); // new built-in added once
+  assert.deepEqual(m.order, ['upper', 'lower', 'conditioning', 'mobility']); // new built-ins added once
   assert.equal(m.seedVersion, E.SEED_VERSION);
   assert.equal(m.current, 'lower');
   // Bad ids are dropped; a missing current falls back to the first routine.
@@ -290,8 +291,8 @@ test('the Conditioning routine: named one-round blocks, about 30 minutes', () =>
   // Deleting it sticks: data already at this seed version doesn't get it back.
   const s = clone(E.freshState());
   delete s.days.conditioning;
-  s.order = ['upper', 'lower'];
-  assert.deepEqual(E.normalize(s).state.order, ['upper', 'lower']);
+  s.order = ['upper', 'lower', 'mobility'];
+  assert.deepEqual(E.normalize(s).state.order, ['upper', 'lower', 'mobility']);
   // Block names survive a save.
   assert.equal(E.normalize(clone(E.freshState())).state.days.conditioning.blocks[1].name, 'Run');
 });
@@ -357,4 +358,27 @@ test('the version agrees everywhere it appears', () => {
   assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version, E.VERSION, 'package.json');
   assert.ok(fs.readFileSync(path.join(root, 'sw.js'), 'utf8').includes(`const CACHE = 'workit-${E.VERSION}'`), 'sw.js CACHE');
   assert.ok(fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8').includes(`**${E.VERSION}**`), 'CHANGELOG.md');
+});
+
+test('the Mobility routine: five named blocks, about 30 minutes, added once to existing data', () => {
+  const d = E.SEED_DAYS.mobility;
+  assert.deepEqual(d.blocks.map((b) => b.name), ['Movement Prep', 'Mobility 1', 'Mobility 2', 'Mobility 3', 'Mobility 4']);
+  assert.deepEqual(d.blocks.map((b) => b.rounds), [2, 2, 2, 2, 1]);
+  assert.equal(d.warmup.length + d.cooldown.length, 0);
+  const min = E.estimateSeconds(E.buildPlan(d)) / 60;
+  assert.ok(min > 28 && min < 31, String(min));
+  const ids = E.flatten(d, { all: true }).map((f) => f.item.id);
+  assert.equal(new Set(ids).size, ids.length, 'item ids are unique within the routine');
+  // Data saved at 1.10 (seed version 2) gets Mobility, and keeps its own order and Conditioning as-is.
+  const s = clone(E.freshState());
+  delete s.days.mobility;
+  s.seedVersion = 2;
+  s.order = ['lower', 'conditioning', 'upper'];
+  const n = E.normalize(s).state;
+  assert.deepEqual(n.order, ['lower', 'conditioning', 'upper', 'mobility']);
+  assert.equal(n.days.mobility.name, 'Mobility');
+  // Every library entry is still valid with the new moves in it.
+  const lib = E.library();
+  assert.equal(new Set(lib.map((x) => x.name)).size, lib.length);
+  assert.ok(lib.some((x) => x.name === '90/90 Supported Switches' && x.equipment === 'bodyweight'));
 });

@@ -4,7 +4,8 @@ Your version is at the bottom of ⋯ → Settings.
 
 | Version | Date | What changed |
 |---|---|---|
-| **1.10.0** | Nov 23, 2026 | Version number in Settings, Check for updates, and a banner to reload when a new version is ready. |
+| **1.11.0** | Nov 25, 2026 | Mobility routine (30 min): Movement Prep and Mobility 1–4, timed from reps and breaths. |
+| 1.10.0 | Nov 23, 2026 | Version number in Settings, Check for updates, and a banner to reload when a new version is ready. |
 | 1.9.0 | Nov 23, 2026 | Sounds play over your music (ringer on), or on silent with music paused: your choice. Cues are scheduled on the audio clock so they land on time; no more overlapping tones between back-to-back intervals. |
 | 1.8.0 | Nov 21, 2026 | Conditioning routine (30 min). Blocks can be named. Intervals up to 10 minutes. Kettlebell filter in the library. |
 | 1.7.0 | Nov 21, 2026 | Drag ≡ to reorder exercises within a block, warm-up or cool-down. |

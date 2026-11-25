@@ -44,6 +44,18 @@ No dependencies and no build step. To put it on your iPhone, host the folder on 
 
 If you already had the app, Conditioning is added once to the end of your routines; delete it and it stays deleted. Set kettlebell weights with ⋯ on each move.
 
+**Mobility**: about 30 minutes on a mat, no equipment. Reps and breaths are timed at roughly 8 seconds each, with 5 s to change position.
+
+| Block | Rounds | What |
+|---|---|---|
+| Movement Prep | 2× | Full Breaths (5) · Child’s Pose (5 breaths) · Cat Cow (5) |
+| Mobility 1 | 2× | Bird Dogs Each Side (5) · Thread the Needle Each Side (3) |
+| Mobility 2 | 2× | Kneeling Hip Flexor into Half Splits (5) and Kneeling Quad Stretch (4–5 breaths), right leg then left |
+| Mobility 3 | 2× | Seated Side Bends (6) · Seated Forward Fold (5 breaths) · 90/90 Supported Switches (12) |
+| Mobility 4 | 1× | Hip Twisters (12) · Lying Knee Hug to Spinal Twist Each Side · Figure 4 Stretch Each Leg · Down Dog · Child’s Pose (5 breaths each) |
+
+“Each side” moves are one interval: switch sides at the halfway blip.
+
 The cool-down stretches target the muscles that day works, so they don't add to the muscle count.
 
 ## Your own routines

@@ -21,8 +21,8 @@
   // Bump on every release, together with package.json, the CACHE name in sw.js
   // and a line in CHANGELOG.md (a test checks they agree). A new cache name is
   // what makes phones download the new files.
-  const VERSION = '1.10.0';
-  const RELEASED = '2026-11-23';
+  const VERSION = '1.11.0';
+  const RELEASED = '2026-11-25';
 
   // ---------- dates (local calendar days as YYYY-MM-DD) ----------
 
@@ -85,6 +85,10 @@
     id, name, muscles, kind,
     sets: 2, seconds: 15, reps: 8, weight: null, sides: 'none', cue: '', trend: null,
     ...extra,
+  });
+  // Mobility moves: timed intervals with no equipment (mat optional).
+  const M = (id, name, muscles, seconds, cue) => ({
+    id, name, muscles, kind: 'interval', sets: 2, seconds, reps: 8, weight: null, sides: 'none', cue, trend: null, equipment: 'bodyweight',
   });
   const I = (id, name, muscles, weight, cue, extra) => S(id, name, muscles, 'interval', { seconds: 45, weight, cue, ...extra });
 
@@ -215,11 +219,65 @@
         S('half-split', 'Half Split Hold', ['hamstrings'], 'static', { sets: 1, seconds: 45, sides: 'each', cue: 'Back knee down, front leg straight, fold over it with a long back.' }),
       ],
     },
+    // A 30-minute mat routine. Reps and breaths are timed at about 8 s each;
+    // "each side" moves switch at the halfway blip.
+    mobility: {
+      id: 'mobility',
+      name: 'Mobility',
+      warmupOn: true,
+      cooldownOn: true,
+      warmup: [],
+      blocks: [
+        {
+          id: 'm-prep', name: 'Movement Prep', rounds: 2, rest: 5, roundRest: 15,
+          items: [
+            M('full-breaths', 'Full Breaths', ['abs'], 40, '5 full inhales and exhales.'),
+            M('mob-childs-pose', 'Child’s Pose', ['lats', 'lower-back'], 40, 'Hold for 5 full breaths.'),
+            M('cat-cow', 'Cat Cow', ['lower-back'], 40, '5 reps. Inhale to cow, exhale to cat.'),
+          ],
+        },
+        {
+          id: 'm-1', name: 'Mobility 1', rounds: 2, rest: 5, roundRest: 15,
+          items: [
+            M('bird-dog-each', 'Bird Dogs Each Side', ['abs', 'lower-back', 'glutes'], 80, '5 slow reps per side. Inhale to reach, exhale elbow to knee. Switch sides at the halfway blip.'),
+            M('thread-needle-each', 'Thread the Needle Each Side', ['lats', 'shoulders'], 80, '3 reps per side, holding the end position for a few breaths. Switch sides at the halfway blip.'),
+          ],
+        },
+        {
+          id: 'm-2', name: 'Mobility 2', rounds: 2, rest: 5, roundRest: 15,
+          items: [
+            M('hip-flexor-half-split-r', 'Kneeling Hip Flexor into Half Splits (Right)', ['quads', 'hamstrings'], 60, 'Right leg forward, 5 reps. Hold the end positions as long as needed.'),
+            M('kneeling-quad-r', 'Kneeling Quad Stretch (Right)', ['quads'], 40, 'Right leg forward. Hold for 4–5 full breaths.'),
+            M('hip-flexor-half-split-l', 'Kneeling Hip Flexor into Half Splits (Left)', ['quads', 'hamstrings'], 60, 'Left leg forward, 5 reps. Hold the end positions as long as needed.'),
+            M('kneeling-quad-l', 'Kneeling Quad Stretch (Left)', ['quads'], 40, 'Left leg forward. Hold for 4–5 full breaths.'),
+          ],
+        },
+        {
+          id: 'm-3', name: 'Mobility 3', rounds: 2, rest: 5, roundRest: 15,
+          items: [
+            M('seated-side-bends', 'Seated Side Bends', ['lats'], 45, '6 reps, alternating. Hold the end position as long as needed.'),
+            M('seated-forward-fold', 'Seated Forward Fold', ['hamstrings', 'lower-back'], 40, 'Hold for 5 full breaths.'),
+            M('ninety-ninety-switches', '90/90 Supported Switches', ['glutes', 'abductors'], 75, '12 reps, alternating. Hold the end position on each side as long as needed.'),
+          ],
+        },
+        {
+          id: 'm-4', name: 'Mobility 4', rounds: 1, rest: 5, roundRest: 15,
+          items: [
+            M('hip-twisters', 'Hip Twisters', ['abs', 'lower-back'], 45, '12 reps, alternating.'),
+            M('knee-hug-spinal-twist', 'Lying Knee Hug to Spinal Twist Each Side', ['lower-back', 'glutes'], 80, 'Hold one side for 5 full breaths, then switch at the halfway blip.'),
+            M('figure-4-each', 'Figure 4 Stretch Each Leg', ['glutes'], 80, 'Hold one side for 5 full breaths, then switch at the halfway blip.'),
+            M('down-dog', 'Down Dog', ['hamstrings', 'calves', 'shoulders'], 40, 'Hold for 5 full breaths.'),
+            M('mob-childs-pose-end', 'Child’s Pose', ['lats', 'lower-back'], 40, 'Hold for 5 full breaths.'),
+          ],
+        },
+      ],
+      cooldown: [],
+    },
   };
 
   /** Bumped when a built-in routine is added; existing data gets it once. */
-  const SEED_VERSION = 2;
-  const SEED_ADDED = { conditioning: 2 };
+  const SEED_VERSION = 3;
+  const SEED_ADDED = { conditioning: 2, mobility: 3 };
 
   // ---------- library ----------
   //
