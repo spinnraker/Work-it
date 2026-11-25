@@ -382,3 +382,41 @@ test('the Mobility routine: five named blocks, about 30 minutes, added once to e
   assert.equal(new Set(lib.map((x) => x.name)).size, lib.length);
   assert.ok(lib.some((x) => x.name === '90/90 Supported Switches' && x.equipment === 'bodyweight'));
 });
+
+test('4-week weight suggestion', () => {
+  const today = '2026-11-25';
+  const item = { name: 'Dumbbell Bicep Curl', kind: 'interval', weight: 15, seconds: 45, trend: null, holdUntil: null };
+  let n = 0;
+  const sess = (date, weight, rating = null, name = item.name) => ({ date, startedAt: E.fromKey(date).getTime() + n++, results: [{ name, section: 'block', weight, done: 3, rating }] });
+  const weekly = (from, count, weight) => Array.from({ length: count }, (_, k) => sess(E.addDays(from, k * 7), weight));
+
+  // 5 weekly workouts at 15 lb, the first 28 days ago: suggest 17.5.
+  let h = weekly('2026-10-28', 5, 15);
+  let s = E.weightSuggestion(item, h, today);
+  assert.deepEqual({ since: s.since, weeks: s.weeks, workouts: s.workouts, to: s.to }, { since: '2026-10-28', weeks: 4, workouts: 5, to: 17.5 });
+  // Only 27 days: not yet.
+  assert.equal(E.weightSuggestion(item, weekly('2026-10-29', 4, 15), today), null);
+  // Fewer than 3 workouts at this weight, however long ago: not yet.
+  assert.equal(E.weightSuggestion(item, [sess('2026-10-01', 15), sess('2026-11-20', 15)], today), null);
+  // The clock restarts when the weight changes: 12.5 for weeks, 15 only since Nov 11.
+  h = [...weekly('2026-09-01', 8, 12.5), ...weekly('2026-11-11', 3, 15)];
+  assert.equal(E.weightSuggestion(item, h, today), null);
+  // ...and 4 weeks after that change it asks again.
+  assert.ok(E.weightSuggestion(item, h, '2026-12-09'));
+  // Last one rated too hard, or already flagged to go down: no.
+  h = [...weekly('2026-10-21', 5, 15), sess('2026-11-24', 15, 'hard')];
+  assert.equal(E.weightSuggestion(item, h, today), null);
+  h = weekly('2026-10-21', 5, 15);
+  assert.equal(E.weightSuggestion({ ...item, trend: 'down' }, h, today), null);
+  // "Not yet" holds it until the date passes.
+  assert.equal(E.weightSuggestion({ ...item, holdUntil: '2026-12-23' }, h, today), null);
+  assert.ok(E.weightSuggestion({ ...item, holdUntil: '2026-12-23' }, h, '2026-12-23'));
+  // Bodyweight and stretches never get one; other exercises' history doesn't count.
+  assert.equal(E.weightSuggestion({ ...item, weight: null }, h, today), null);
+  assert.equal(E.weightSuggestion(item, weekly('2026-10-01', 6, 15).map((x) => ({ ...x, results: [{ ...x.results[0], name: 'Hammer Curl' }] })), today), null);
+  // 25 lb steps by 5.
+  assert.equal(E.weightSuggestion({ ...item, weight: 25 }, weekly('2026-10-21', 5, 25), today).to, 30);
+  // holdUntil survives a save.
+  assert.equal(E.cleanItem({ ...item, holdUntil: '2026-12-23' }, 'interval').holdUntil, '2026-12-23');
+  assert.equal(E.cleanItem({ ...item, holdUntil: 'soon' }, 'interval').holdUntil, null);
+});

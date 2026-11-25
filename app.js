@@ -679,21 +679,34 @@
     return `<button class="more" ${attrs} aria-label="${esc(label)}">${ICON.more}</button>`;
   }
 
+  /** The 4-week "go heavier" suggestion for an exercise in a block, if any. */
+  function suggestionFor(it, sec) {
+    return sec === 'block' ? E.weightSuggestion(it, state.sessions, today()) : null;
+  }
+
+  /** Which way the arrow points: a rating says so, or 4 weeks at one weight says up. */
+  function arrowFor(it, sec) {
+    return it.trend || (suggestionFor(it, sec) ? 'up' : null);
+  }
+
   function row(it, sec, b, i, rounds, count) {
     const at = `data-sec="${sec}" data-b="${b}" data-i="${i}"`;
-    const trend = it.trend
-      ? `<button class="trend" data-action="trend" ${at} aria-label="${it.trend === 'up' ? 'Go up' : 'Go down'}: ${esc(trendText(it))}">${it.trend === 'up' ? ICON.up : ICON.down}</button>`
+    const dir = arrowFor(it, sec);
+    const sg = suggestionFor(it, sec);
+    const trend = dir
+      ? `<button class="trend" data-action="trend" ${at} aria-label="${dir === 'up' ? 'Go up' : 'Go down'}: ${esc(trendText(it, dir))}">${dir === 'up' ? ICON.up : ICON.down}</button>`
       : '';
+    const nudge = sg ? `<em class="nudge">${sg.weeks} wks at ${esc(E.lb(it.weight))} · ready for ${esc(E.lb(sg.to))}</em>` : '';
     return `<div class="ex">
-      <button class="ex-body" data-action="item" ${at}><b>${esc(it.name)}</b><span>${esc(E.describe(it, rounds))}</span></button>
+      <button class="ex-body" data-action="item" ${at}><b>${esc(it.name)}</b><span>${esc(E.describe(it, rounds))}</span>${nudge}</button>
       ${trend}
       ${moreBtn(`data-action="item" ${at}`, `Edit ${it.name}`)}
       ${count > 1 ? `<button class="grip" data-grip ${at} aria-label="Reorder ${esc(it.name)}, ${i + 1} of ${count}. Drag, or use the arrow keys.">${ICON.grip}</button>` : ''}
     </div>`;
   }
 
-  function trendText(it) {
-    const p = E.progress(it, it.trend);
+  function trendText(it, dir = it.trend) {
+    const p = E.progress(it, dir);
     return it.weight ? (p.weight ? E.lb(p.weight) : 'bodyweight') : `${E.clock(p.seconds)} intervals`;
   }
 
@@ -723,6 +736,10 @@
       <div class="day-head"><h1>${esc(d.name)}</h1>
         <button class="pill" data-action="switch">${ICON.swap}${state.order.length > 2 ? 'Routines' : 'Switch'}</button></div>
       <p class="day-sub">${st.exercises ? `${plural(st.exercises, 'exercise')} · ${plural(st.muscles, 'muscle')}` : 'Empty. Tap Add exercise to fill it from the library.'}</p>
+      ${(() => {
+        const n = d.blocks.flatMap((b) => b.items).filter((it) => suggestionFor(it, 'block')).length;
+        return n ? `<p class="nudge-note">${ICON.up}<span>${n === 1 ? '1 exercise has' : `${n} exercises have`} been at the same weight for 4 weeks. Tap ↑ to go up a dumbbell.</span></p>` : '';
+      })()}
       ${a && a.snapshot.id !== d.id ? `<div class="banner"><span><b>${esc(a.snapshot.name)}</b> is in progress</span><button class="btn small" data-action="start">Resume</button></div>` : ''}
       ${stretchSection('warmup')}
       <section class="sec">${blocks}</section>
@@ -1006,6 +1023,14 @@
     const picker = isAdd ? `<div class="field"><span>Add to</span>
         <div class="chips">${destinations().map(([v, l]) => `<button class="chip" data-action="dest" data-value="${v}" aria-pressed="${sheet.dest === v}">${esc(l)}</button>`).join('')}</div></div>` : '';
     const last = !isAdd && interval ? E.lastWeight(state.sessions, x.name) : null;
+    const live = !isAdd ? list(sheet.sec, sheet.b)[sheet.i] : null;
+    const sg = live ? suggestionFor(live, sheet.sec) : null;
+    const nudge = sg ? `<div class="nudge-box">
+        <b>${sg.weeks} weeks at ${esc(E.lb(live.weight))}</b>
+        <p>${sg.workouts} workouts at this weight since ${esc(shortDate(sg.since))}. Ready for ${esc(E.lb(sg.to))}?</p>
+        <div class="nudge-actions"><button class="btn small" data-action="sugg-up">Go up to ${esc(E.lb(sg.to))}</button>
+          <button class="btn small ghost" data-action="sugg-hold">Not yet</button></div>
+      </div>` : '';
     const weightFmt = (w) => (w ? E.lb(w) : 'Bodyweight');
     const fields = interval
       ? `<div class="field"><span>Interval</span>${stepper('seconds', x.seconds, 'time', 15, 600, (v) => (sheet.sec === 'block' && (day().blocks[sheet.b] || {}).rounds === 1 ? E.clock(v) : `${E.clock(v)} each`))}</div>
@@ -1027,6 +1052,7 @@
     return `<div class="sheet-top"><button data-action="close">Cancel</button>
         <button class="done" data-action="save-item" ${x.name.trim() ? '' : 'disabled'}>${isAdd ? 'Add' : 'Save'}</button></div>
       <h1 id="sheet-title" class="detail-name" tabindex="-1">${isAdd ? 'Your own exercise' : esc(x.name || 'Exercise')}</h1>
+      ${nudge}
       ${picker}
       <label class="field"><span>Name</span><input type="text" data-field="name" value="${esc(x.name)}" placeholder="e.g. Push Up" maxlength="80" autocomplete="off"></label>
       <div class="field"><span>Muscles</span>
@@ -1564,11 +1590,13 @@
         break;
       case 'trend': {
         const it = list(ds.sec, b)[i];
-        if (!it || !it.trend) break;
-        const p = E.progress(it, it.trend);
+        const dir = it && arrowFor(it, ds.sec);
+        if (!dir) break;
+        const p = E.progress(it, dir);
         it.weight = p.weight;
         it.seconds = p.seconds;
         it.trend = null;
+        it.holdUntil = null;
         save();
         render();
         toast(`${it.name}: ${it.weight ? E.lb(it.weight) : E.clock(it.seconds)}`);
@@ -1642,6 +1670,27 @@
         sheet.b = to.b;
         if (destKind(ds.value) !== was) sheet.draft = newDraft(ds.value);
         renderSheet();
+        break;
+      }
+      case 'sugg-up': {
+        const it = list(sheet.sec, sheet.b)[sheet.i];
+        const sg = it && suggestionFor(it, sheet.sec);
+        if (!sg) break;
+        it.weight = sg.to;
+        it.trend = null;
+        it.holdUntil = null;
+        save();
+        closeSheet();
+        toast(`${it.name}: ${E.lb(it.weight)}`);
+        break;
+      }
+      case 'sugg-hold': {
+        const it = list(sheet.sec, sheet.b)[sheet.i];
+        if (!it) break;
+        it.holdUntil = E.addDays(today(), E.PROGRESS_DAYS);
+        save();
+        closeSheet();
+        toast(`OK · asking again ${shortDate(it.holdUntil)}`);
         break;
       }
       case 'save-item':

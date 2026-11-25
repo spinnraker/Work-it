@@ -21,7 +21,7 @@
   // Bump on every release, together with package.json, the CACHE name in sw.js
   // and a line in CHANGELOG.md (a test checks they agree). A new cache name is
   // what makes phones download the new files.
-  const VERSION = '1.11.0';
+  const VERSION = '1.12.0';
   const RELEASED = '2026-11-25';
 
   // ---------- dates (local calendar days as YYYY-MM-DD) ----------
@@ -497,6 +497,8 @@
       sides: x.sides === 'each' ? 'each' : 'none',
       cue: str(x.cue).slice(0, 400),
       trend: x.trend === 'up' || x.trend === 'down' ? x.trend : null,
+      // "Not yet" on a 4-week weight suggestion: don't ask again before this date.
+      holdUntil: typeof x.holdUntil === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x.holdUntil) ? x.holdUntil : null,
     };
   }
 
@@ -975,6 +977,42 @@
     return out;
   }
 
+  // ---------- 4-week weight progression ----------
+
+  const PROGRESS_DAYS = 28;   // time at one weight before suggesting more
+  const PROGRESS_MIN_WORKOUTS = 3;
+
+  /**
+   * Suggest going heavier when a weighted interval has been done at its
+   * current weight for 4 weeks. Worked out from history, nothing stored:
+   *   - walk back through the workouts that did this exercise (by name) while
+   *     they used the current weight; the oldest one is when this weight began
+   *   - at least 3 of them, the first one 28+ days ago
+   *   - not if the last one was rated too hard, the arrow already says go
+   *     down, or "Not yet" was tapped (holdUntil)
+   * Going up (or any weight change) starts a new run, so it asks again 4
+   * weeks after that. Returns null or { since, days, weeks, workouts, to }.
+   */
+  function weightSuggestion(item, sessions, today) {
+    if (!item || item.kind !== 'interval' || !item.weight) return null;
+    if (item.trend === 'down') return null;
+    if (item.holdUntil && today < item.holdUntil) return null;
+    const runs = [];
+    for (const x of sessions.slice().sort((a, b) => b.startedAt - a.startedAt)) {
+      if (x.date > today) continue;
+      const r = x.results.find((y) => y.name === item.name && y.section === 'block' && y.done > 0);
+      if (!r) continue;
+      if (r.weight !== item.weight) break;
+      runs.push({ date: x.date, rating: r.rating });
+    }
+    if (runs.length < PROGRESS_MIN_WORKOUTS) return null;
+    if (runs[0].rating === 'hard') return null;
+    const since = runs[runs.length - 1].date;
+    const days = diffDays(since, today);
+    if (days < PROGRESS_DAYS) return null;
+    return { since, days, weeks: Math.floor(days / 7), workouts: runs.length, to: progress(item, 'up').weight };
+  }
+
   /** Last weight used for an exercise name, from history. */
   function lastWeight(sessions, name) {
     const s = sessions.slice().sort((a, b) => b.startedAt - a.startedAt);
@@ -991,7 +1029,7 @@
     MUSCLES, MUSCLE_IDS, SEED_DAYS, SEED_VERSION, library, EQUIPMENT, filterLibrary, fromLibrary, defaultSettings, freshState, normalize, cleanItem, cleanWeight,
     clock, lb, describe, flatten, dayStats,
     INTRO_SECONDS, READY_SECONDS, buildPlan, enterCue, stepCues, workTargets, workDone, backTarget, estimateSeconds, sectionSeconds, summarize,
-    weightStep, stepSeconds, progress, trendFor, nextDay, nextInOrder, newRoutine, moveTo, dropIndex,
+    weightStep, stepSeconds, progress, weightSuggestion, PROGRESS_DAYS, trendFor, nextDay, nextInOrder, newRoutine, moveTo, dropIndex,
     workoutDays, weekStreak, weekCount, muscleReport, lastWeight,
   };
 });

@@ -91,6 +91,8 @@ After a workout, rate each interval exercise **Too easy**, **Just right** or **T
 - With dumbbells: the next dumbbell up or down (2.5 lb steps under 25 lb, 5 lb above).
 - Bodyweight: 5 seconds more or less per interval.
 
+**Every 4 weeks** the app also suggests going heavier on its own. When you've done a weighted exercise at the same weight for 4 weeks (at least 3 workouts, and the last one wasn't rated too hard), it shows ↑ with "4 wks at 15 lb · ready for 17.5 lb", and the top of the routine says how many are ready. Tap ↑ to go up, or open the exercise (⋯) and tap **Not yet** to be asked again in 4 weeks. Any weight change restarts the 4-week count. It's worked out from your log, so nothing extra to track.
+
 Editing an exercise shows the weight you used last time.
 
 ## Editing
