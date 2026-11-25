@@ -1,6 +1,6 @@
 {
   "name": "work-it",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "private": true,
   "description": "Upper and lower body interval workouts that run themselves: warm-up, timed circuits, cool-down stretches.",
   "scripts": {

@@ -417,3 +417,20 @@ textarea:focus { border-color: var(--fg); }
 .nudge-box b { display: block; font-size: 17px; }
 .nudge-box p { color: var(--muted); font-size: 15px; margin-top: 4px; }
 .nudge-actions { display: flex; gap: 10px; margin-top: 14px; }
+
+/* ---------- rotation ---------- */
+
+.rot-line { font-size: 14px; color: var(--muted); margin-top: 2px; }
+.rotation { list-style: none; margin-top: 10px; border-top: 1px solid var(--line); }
+.rotation li { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
+.rotation li i { flex: none; width: 24px; font-style: normal; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.rotation li.next { color: var(--fg); font-weight: 600; }
+.rotation li em { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.rot-row { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--line); }
+.rot-pick { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 12px 0; text-align: left; }
+.rot-pick i { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--line); display: grid; place-items: center; font-style: normal; font-size: 13px; font-weight: 600; color: var(--muted); }
+.rot-row.next .rot-pick i { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.rot-pick b { display: block; font-weight: 600; }
+.rot-pick small { display: block; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+.rot-btn { flex: none; width: 38px; height: 44px; font-size: 20px; color: var(--muted); text-align: center; }
+.rot-btn:disabled { color: var(--line); }

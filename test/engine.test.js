@@ -484,3 +484,64 @@ test('no running: saved routines switch Run and Jog to the rower, keeping their 
   assert.ok(!E.library().some((x) => /^(run|jog)$/i.test(x.name)));
   assert.deepEqual(E.library().filter((x) => x.equipment === 'rower').map((x) => x.name), ['Easy Row', 'Row']);
 });
+
+test('rotation: its own cycle where routines repeat, alternating A and B days', () => {
+  const st = E.freshState();
+  assert.deepEqual(st.rotation, ['upper', 'lower', 'conditioning', 'mobility', 'upper-b', 'lower-b', 'conditioning', 'mobility']);
+  // Walk two full cycles by finishing whatever is up next.
+  let at = 0;
+  const seq = [];
+  for (let k = 0; k < 16; k++) { const id = st.rotation[at]; seq.push(id); at = E.advanceRotation(st.rotation, at, id); }
+  assert.deepEqual(seq.slice(0, 8), st.rotation);
+  assert.deepEqual(seq.slice(8), st.rotation);
+  // After the second Mobility comes Upper A again, after the first comes Upper B.
+  assert.equal(st.rotation[E.advanceRotation(st.rotation, 3, 'mobility')], 'upper-b');
+  assert.equal(st.rotation[E.advanceRotation(st.rotation, 7, 'mobility')], 'upper');
+  // Doing something else: jump past that routine's next slot.
+  assert.equal(E.advanceRotation(st.rotation, 0, 'conditioning'), 3);
+  assert.equal(E.advanceRotation(st.rotation, 4, 'lower'), 2, 'wraps around to the next Lower');
+  // A routine that isn't in the rotation doesn't move it.
+  assert.equal(E.advanceRotation(st.rotation, 5, 'r-hotel'), 5);
+});
+
+test('rotation from saved data: default cycle for older data, cleaned up otherwise', () => {
+  const s = clone(E.freshState());
+  delete s.rotation;
+  delete s.rotationAt;
+  s.current = 'mobility';
+  const n = E.normalize(s).state;
+  assert.equal(n.rotation.length, 8);
+  assert.equal(n.rotation[n.rotationAt], 'mobility', 'picks up where you were');
+  assert.equal(n.current, 'mobility');
+  // Deleted routines drop out of the default; unknown ids are removed.
+  const t = clone(E.freshState());
+  delete t.days['upper-b'];
+  delete t.rotation;
+  assert.deepEqual(E.normalize(t).state.rotation, ['upper', 'lower', 'conditioning', 'mobility', 'lower-b', 'conditioning', 'mobility']);
+  const u = clone(E.freshState());
+  u.rotation = ['upper', 'gone', 'lower'];
+  u.rotationAt = 9;
+  const un = E.normalize(u).state;
+  assert.deepEqual(un.rotation, ['upper', 'lower']);
+  assert.equal(un.rotationAt, 1);
+  // Custom rotations survive a save.
+  const v = clone(E.freshState());
+  v.rotation = ['lower', 'lower', 'mobility'];
+  v.rotationAt = 2;
+  assert.deepEqual(E.normalize(v).state.rotation, ['lower', 'lower', 'mobility']);
+  assert.equal(E.normalize(v).state.rotationAt, 2);
+});
+
+test('removing a routine from the rotation keeps up-next on the same slot', () => {
+  const r = ['upper', 'lower', 'conditioning', 'mobility', 'upper-b', 'lower-b', 'conditioning', 'mobility'];
+  // Up next: Upper B (slot 4). Remove Conditioning (slots 2 and 6) → Upper B is now slot 3.
+  let x = E.removeFromRotation(r, 4, 'conditioning');
+  assert.deepEqual(x.rotation, ['upper', 'lower', 'mobility', 'upper-b', 'lower-b', 'mobility']);
+  assert.equal(x.rotation[x.rotationAt], 'upper-b');
+  // Up next is the removed one → the slot after it.
+  x = E.removeFromRotation(r, 2, 'conditioning');
+  assert.equal(x.rotation[x.rotationAt], 'mobility');
+  // Removing the last slot wraps to the start.
+  x = E.removeFromRotation(['upper', 'mobility'], 1, 'mobility');
+  assert.deepEqual(x, { rotation: ['upper'], rotationAt: 0 });
+});

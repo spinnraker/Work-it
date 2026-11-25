@@ -74,7 +74,7 @@ Upper and Lower are just the two routines you start with. Tap **Switch** (it rea
 - **Tap a routine** to do it now.
 - **New routine**: name it ("Full Body", "Arms & Abs", "Hotel TRX") and start blank (one empty block, fill it from the library) or as a copy of any routine you have.
 - **⋯ on a routine**: rename, move it earlier or later in the rotation, duplicate, reset (Upper and Lower only) or delete. You always keep at least one.
-- **Rotation**: finishing a workout brings up the next routine in the list, wrapping around (Upper → Lower → Full Body → Upper …). Ending early doesn't move it on.
+- **Rotation**: the cycle the app follows, separate from the routine list, so a routine can come up more than once. The default is Upper → Lower → Conditioning → Mobility → Upper B → Lower B → Conditioning → Mobility, then repeat (A and B days alternate). Finishing a workout moves to the next slot; ending early doesn't. Routines → **Edit rotation** reorders, adds or removes slots, or makes any slot up next. If you do a routine out of turn, the rotation carries on from that routine's next slot. New routines aren't added to the rotation until you add them.
 
 Each routine has its own warm-up, blocks, cool-down, weights and ↑/↓ arrows. The log, Body tab and streak count every routine. Deleting a routine keeps its past workouts in the log.
 

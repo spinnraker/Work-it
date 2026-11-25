@@ -4,7 +4,8 @@ Your version is at the bottom of ⋯ → Settings.
 
 | Version | Date | What changed |
 |---|---|---|
-| **1.13.0** | Nov 26, 2026 | Upper Body Day B and Lower Body Day B. Rowing instead of running: Conditioning’s jog and run are now Easy Row and Row, in saved routines too. Rower filter in the library. |
+| **1.14.0** | Nov 26, 2026 | Rotation is its own cycle, so a routine can repeat: Upper → Lower → Conditioning → Mobility → Upper B → Lower B → Conditioning → Mobility. Edit it under Routines. |
+| 1.13.0 | Nov 26, 2026 | Upper Body Day B and Lower Body Day B. Rowing instead of running: Conditioning’s jog and run are now Easy Row and Row, in saved routines too. Rower filter in the library. |
 | 1.12.0 | Nov 25, 2026 | Every 4 weeks at the same weight, the ↑ arrow suggests the next dumbbell up. Not yet asks again in 4 weeks. |
 | 1.11.0 | Nov 25, 2026 | Mobility routine (30 min): Movement Prep and Mobility 1–4, timed from reps and breaths. |
 | 1.10.0 | Nov 23, 2026 | Version number in Settings, Check for updates, and a banner to reload when a new version is ready. |

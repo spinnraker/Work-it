@@ -21,7 +21,7 @@
   // Bump on every release, together with package.json, the CACHE name in sw.js
   // and a line in CHANGELOG.md (a test checks they agree). A new cache name is
   // what makes phones download the new files.
-  const VERSION = '1.13.0';
+  const VERSION = '1.14.0';
   const RELEASED = '2026-11-26';
 
   // ---------- dates (local calendar days as YYYY-MM-DD) ----------
@@ -567,7 +567,9 @@
   function freshState() {
     return {
       days: JSON.parse(JSON.stringify(SEED_DAYS)),
-      order: Object.keys(SEED_DAYS), // routines in rotation order
+      order: Object.keys(SEED_DAYS), // the routine list
+      rotation: defaultRotation(SEED_DAYS), // the cycle; a routine can appear more than once
+      rotationAt: 0, // the slot that's up next
       current: 'upper',
       seedVersion: SEED_VERSION,
       settings: defaultSettings(),
@@ -733,7 +735,7 @@
       };
     }
     return {
-      state: { days, order, current: days[raw.current] ? raw.current : order[0], seedVersion: Math.max(seedVersion, SEED_VERSION), settings, sessions, active },
+      state: { days, order, ...cleanRotation(raw, days, order), seedVersion: Math.max(seedVersion, SEED_VERSION), settings, sessions, active },
       dropped: counter.n,
     };
   }
@@ -991,6 +993,58 @@
     return to;
   }
 
+  // ---------- rotation ----------
+  //
+  // The rotation is its own sequence of routine ids, separate from the routine
+  // list, so a routine can come up more than once per cycle. `rotationAt` is
+  // the slot that's up next.
+
+  const DEFAULT_ROTATION = ['upper', 'lower', 'conditioning', 'mobility', 'upper-b', 'lower-b', 'conditioning', 'mobility'];
+
+  function defaultRotation(days) {
+    const r = DEFAULT_ROTATION.filter((id) => days[id]);
+    return r.length ? r : Object.keys(days);
+  }
+
+  /**
+   * Rotation from saved data. Data from before rotations existed gets the
+   * default cycle (A days, Conditioning, Mobility, B days, Conditioning,
+   * Mobility), starting at whichever routine was up next.
+   */
+  function cleanRotation(raw, days, order) {
+    const saved = Array.isArray(raw.rotation);
+    let rotation = (saved ? raw.rotation : defaultRotation(days)).filter((id) => typeof id === 'string' && days[id]).slice(0, 100);
+    if (!rotation.length) rotation = order.slice();
+    let current = days[raw.current] ? raw.current : rotation[0];
+    let at;
+    if (saved && Number.isInteger(raw.rotationAt)) at = Math.min(rotation.length - 1, Math.max(0, raw.rotationAt));
+    else at = Math.max(0, rotation.indexOf(current));
+    return { rotation, rotationAt: at, current };
+  }
+
+  /**
+   * The slot that's up next after finishing routine `id`. Normally the slot
+   * after the one that was up; if you did a different routine, the slot after
+   * that routine's next appearance; if it isn't in the rotation, no change.
+   */
+  function advanceRotation(rotation, at, id) {
+    const n = rotation.length;
+    if (!n) return 0;
+    for (let k = 0; k < n; k++) {
+      const i = (at + k) % n;
+      if (rotation[i] === id) return (i + 1) % n;
+    }
+    return at % n;
+  }
+
+  /** Remove every slot for a deleted routine, keeping "up next" on the same slot (or the next one). */
+  function removeFromRotation(rotation, at, id) {
+    const before = rotation.slice(0, at).filter((x) => x === id).length;
+    const out = rotation.filter((x) => x !== id);
+    const next = out.length ? (at - before) % out.length : 0;
+    return { rotation: out, rotationAt: Math.max(0, next) };
+  }
+
   /** The routine after `id` in the rotation, wrapping around. */
   function nextInOrder(order, id) {
     const k = order.indexOf(id);
@@ -1141,6 +1195,7 @@
     clock, lb, describe, flatten, dayStats,
     INTRO_SECONDS, READY_SECONDS, buildPlan, enterCue, stepCues, workTargets, workDone, backTarget, estimateSeconds, sectionSeconds, summarize,
     runningToRowing,
+    DEFAULT_ROTATION, defaultRotation, cleanRotation, advanceRotation, removeFromRotation,
     weightStep, stepSeconds, progress, weightSuggestion, PROGRESS_DAYS, trendFor, nextDay, nextInOrder, newRoutine, moveTo, dropIndex,
     workoutDays, weekStreak, weekCount, muscleReport, lastWeight,
   };

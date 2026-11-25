@@ -498,7 +498,11 @@
     }
     const rec = record(a, status, sum, durationSec);
     state.sessions.push(rec);
-    if (status === 'completed' && state.days[a.snapshot.id]) state.current = E.nextInOrder(state.order, a.snapshot.id);
+    if (status === 'completed') {
+      state.rotationAt = E.advanceRotation(state.rotation, state.rotationAt, a.snapshot.id);
+      const next = state.rotation[state.rotationAt];
+      if (state.days[next]) state.current = next;
+    }
     save();
     render();
     openSheet({ type: 'review', id: rec.id, draft: { ratings: {}, note: '' }, fresh: true });
@@ -736,6 +740,12 @@
       <div class="day-head"><h1>${esc(d.name)}</h1>
         <button class="pill" data-action="switch">${ICON.swap}${state.order.length > 2 ? 'Routines' : 'Switch'}</button></div>
       <p class="day-sub">${st.exercises ? `${plural(st.exercises, 'exercise')} · ${plural(st.muscles, 'muscle')}` : 'Empty. Tap Add exercise to fill it from the library.'}</p>
+      ${(() => {
+        const r = state.rotation;
+        if (r[state.rotationAt] !== d.id || r.length < 2) return '';
+        const then = state.days[r[(state.rotationAt + 1) % r.length]];
+        return `<p class="rot-line">Rotation ${state.rotationAt + 1} of ${r.length}${then ? ` · then ${esc(then.name)}` : ''}</p>`;
+      })()}
       ${(() => {
         const n = d.blocks.flatMap((b) => b.items).filter((it) => suggestionFor(it, 'block')).length;
         return n ? `<p class="nudge-note">${ICON.up}<span>${n === 1 ? '1 exercise has' : `${n} exercises have`} been at the same weight for 4 weeks. Tap ↑ to go up a dumbbell.</span></p>` : '';
@@ -985,6 +995,7 @@
       session: sessionSheet,
       settings: settingsSheet,
       routines: routinesSheet,
+      rotation: rotationSheet,
       routine: routineSheet,
       'new-routine': newRoutineSheet,
     }[sheet.type]();
@@ -1324,9 +1335,18 @@
         ${moreBtn(`data-action="routine" data-id="${esc(d.id)}"`, `Edit ${d.name}`)}
       </div>`;
     }).join('');
+    const rot = state.rotation.map((id, k) => {
+      const nm = state.days[id] ? state.days[id].name : id;
+      return `<li class="${k === state.rotationAt ? 'next' : ''}"><i>${k + 1}</i>${esc(nm)}${k === state.rotationAt ? '<em>Up next</em>' : ''}</li>`;
+    }).join('');
     return `<div class="sheet-top"><span></span><button class="done" data-action="close">Done</button></div>
       <h1 id="sheet-title" class="detail-name" tabindex="-1">Routines</h1>
-      <p class="lead">Tap one to do it now. After you finish a workout, the next one in this list comes up.</p>
+      <div class="section-label" style="margin-top:20px">Rotation</div>
+      <p class="hint">After you finish a workout, the next one in this cycle comes up, then it repeats.</p>
+      <ol class="rotation">${rot}</ol>
+      <div class="form-actions" style="margin-top:14px"><button class="btn ghost block" data-action="edit-rotation">Edit rotation</button></div>
+      <div class="section-label">All routines</div>
+      <p class="hint">Tap one to do it now. The rotation picks up from there.</p>
       <div class="rows routines">${rows}</div>
       <div class="form-actions"><button class="btn block" data-action="new-routine">New routine</button></div>`;
   }
@@ -1341,13 +1361,35 @@
       <h1 id="sheet-title" class="detail-name" tabindex="-1">${esc(d.name)}</h1>
       <p class="lead">${esc(routineSub(d))}</p>
       <label class="field"><span>Name</span><input type="text" data-field="name" value="${esc(sheet.draft.name)}" maxlength="60" autocomplete="off"></label>
-      <div class="field"><span>Place in rotation</span>${stepperLike(k, n)}</div>
+      <div class="field"><span>Place in list</span>${stepperLike(k, n)}</div>
       <div class="form-actions"><button class="btn ghost block" data-action="routine-copy">Duplicate</button></div>
       <div class="detail-actions">
         ${E.SEED_DAYS[d.id] ? '<button class="link" data-action="routine-reset">Reset to original</button>' : ''}
         <button class="link danger" data-action="routine-delete" ${n < 2 ? 'disabled' : ''}>Delete routine</button>
       </div>
       ${n < 2 ? '<p class="hint">You need at least one routine.</p>' : ''}`;
+  }
+
+  function rotationSheet() {
+    const r = state.rotation;
+    const rows = r.map((id, k) => {
+      const nm = state.days[id] ? state.days[id].name : id;
+      const next = k === state.rotationAt;
+      return `<div class="rot-row ${next ? 'next' : ''}">
+        <button class="rot-pick" data-action="rot-next" data-i="${k}" aria-label="Make ${esc(nm)} up next">
+          <i aria-hidden="true">${k + 1}</i><span><b>${esc(nm)}</b>${next ? '<small>Up next</small>' : ''}</span></button>
+        <button class="rot-btn" data-action="rot-move" data-i="${k}" data-delta="-1" aria-label="Earlier" ${k === 0 ? 'disabled' : ''}>↑</button>
+        <button class="rot-btn" data-action="rot-move" data-i="${k}" data-delta="1" aria-label="Later" ${k === r.length - 1 ? 'disabled' : ''}>↓</button>
+        <button class="rot-btn" data-action="rot-remove" data-i="${k}" aria-label="Remove from rotation" ${r.length < 2 ? 'disabled' : ''}>×</button>
+      </div>`;
+    }).join('');
+    return `<div class="sheet-top"><span></span><button class="done" data-action="close">Done</button></div>
+      <h1 id="sheet-title" class="detail-name" tabindex="-1">Rotation</h1>
+      <p class="lead">Finishing a workout moves to the next slot. A routine can be in here more than once. Tap a slot to make it up next.</p>
+      <div class="rows">${rows}</div>
+      <div class="field"><span>Add to the end</span>
+        <div class="chips">${routines().map((d) => `<button class="chip" data-action="rot-add" data-id="${esc(d.id)}">+ ${esc(d.name)}</button>`).join('')}</div></div>
+      <div class="detail-actions"><button class="link" data-action="rot-reset">Reset to Upper, Lower, Conditioning, Mobility, alternating A and B</button></div>`;
   }
 
   function stepperLike(k, n) {
@@ -1515,6 +1557,58 @@
         sheet.draft.from = ds.value;
         renderSheet();
         break;
+      case 'edit-rotation':
+        openSheet({ type: 'rotation' });
+        break;
+      case 'rot-next': {
+        const k = Number(ds.i);
+        const id = state.rotation[k];
+        if (!state.days[id]) break;
+        state.rotationAt = k;
+        state.current = id;
+        save();
+        renderSheet();
+        toast(`Up next: ${state.days[id].name}`);
+        break;
+      }
+      case 'rot-move': {
+        const k = Number(ds.i);
+        const j = k + Number(ds.delta);
+        const r = state.rotation;
+        if (j < 0 || j >= r.length) break;
+        [r[k], r[j]] = [r[j], r[k]];
+        if (state.rotationAt === k) state.rotationAt = j;
+        else if (state.rotationAt === j) state.rotationAt = k;
+        save();
+        renderSheet();
+        break;
+      }
+      case 'rot-remove': {
+        const k = Number(ds.i);
+        const r = state.rotation;
+        if (r.length < 2) break;
+        r.splice(k, 1);
+        if (k < state.rotationAt) state.rotationAt--;
+        state.rotationAt %= r.length;
+        save();
+        renderSheet();
+        break;
+      }
+      case 'rot-add':
+        if (!state.days[ds.id]) break;
+        state.rotation.push(ds.id);
+        save();
+        renderSheet();
+        toast(`Added ${state.days[ds.id].name}`);
+        break;
+      case 'rot-reset': {
+        if (!confirm('Reset the rotation to Upper, Lower, Conditioning, Mobility, Upper B, Lower B, Conditioning, Mobility?')) break;
+        state.rotation = E.defaultRotation(state.days);
+        state.rotationAt = Math.max(0, state.rotation.indexOf(state.current));
+        save();
+        renderSheet();
+        break;
+      }
       case 'create-routine': {
         const from = sheet.draft.from ? state.days[sheet.draft.from] : null;
         const r = E.newRoutine(sheet.draft.name, from, state.days);
@@ -1524,7 +1618,7 @@
         save();
         closeSheet();
         window.scrollTo(0, 0);
-        toast(from ? `${r.name} created` : `${r.name} created · add exercises`);
+        toast(`${r.name} created · add it to your rotation under Routines`);
         break;
       }
       case 'save-routine': {
@@ -1569,7 +1663,9 @@
         if (!confirm(`Delete ${d.name}? Past workouts stay in your log.`)) break;
         delete state.days[d.id];
         state.order = state.order.filter((id) => id !== d.id);
-        if (state.current === d.id) state.current = state.order[0];
+        Object.assign(state, E.removeFromRotation(state.rotation, state.rotationAt, d.id));
+        if (!state.rotation.length) { state.rotation = state.order.slice(); state.rotationAt = 0; }
+        if (state.current === d.id) state.current = state.rotation[state.rotationAt] || state.order[0];
         save();
         openSheet({ type: 'routines' });
         toast(`${d.name} deleted`);
@@ -1580,7 +1676,7 @@
         break;
       case 'close':
         if (sheet && sheet.type === 'review' && !sheet.fresh) openSheet({ type: 'session', id: sheet.id });
-        else if (sheet && (sheet.type === 'routine' || sheet.type === 'new-routine')) openSheet({ type: 'routines' });
+        else if (sheet && (sheet.type === 'routine' || sheet.type === 'new-routine' || sheet.type === 'rotation')) openSheet({ type: 'routines' });
         else closeSheet();
         break;
 
