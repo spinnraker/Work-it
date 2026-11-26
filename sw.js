@@ -1,5 +1,5 @@
 // Offline support: serve the app shell from cache, refresh it in the background.
-const CACHE = 'workit-1.14.0'; // keep in step with VERSION in engine.js
+const CACHE = 'workit-1.15.0'; // keep in step with VERSION in engine.js
 const FILES = [
   './',
   'index.html',

@@ -4,7 +4,8 @@ Your version is at the bottom of ⋯ → Settings.
 
 | Version | Date | What changed |
 |---|---|---|
-| **1.14.0** | Nov 26, 2026 | Rotation is its own cycle, so a routine can repeat: Upper → Lower → Conditioning → Mobility → Upper B → Lower B → Conditioning → Mobility. Edit it under Routines. |
+| **1.15.0** | Nov 26, 2026 | Mobility Flow (12 moves × 0:30) is the first block of every routine and replaces the old warm-ups, which are turned off but kept. Blocks can be turned on and off. Halfway blip only on intervals of 40 s or more. |
+| 1.14.0 | Nov 26, 2026 | Rotation is its own cycle, so a routine can repeat: Upper → Lower → Conditioning → Mobility → Upper B → Lower B → Conditioning → Mobility. Edit it under Routines. |
 | 1.13.0 | Nov 26, 2026 | Upper Body Day B and Lower Body Day B. Rowing instead of running: Conditioning’s jog and run are now Easy Row and Row, in saved routines too. Rower filter in the library. |
 | 1.12.0 | Nov 25, 2026 | Every 4 weeks at the same weight, the ↑ arrow suggests the next dumbbell up. Not yet asks again in 4 weeks. |
 | 1.11.0 | Nov 25, 2026 | Mobility routine (30 min): Movement Prep and Mobility 1–4, timed from reps and breaths. |

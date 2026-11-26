@@ -720,8 +720,16 @@
     const items = d[sec];
     if (!items.length) return '';
     const secs = E.sectionSeconds(d, sec, state.settings.repSeconds);
-    return `<section class="sec ${on ? '' : 'off'}">
-      <div class="sec-head"><h2>${SEC_NAME[sec]}</h2><span class="sec-time">${on ? '+' : ''}${Math.max(1, Math.round(secs / 60))}m</span>
+    if (!on) {
+      // Off: one line instead of a greyed-out list.
+      return `<section class="sec off collapsed">
+        <div class="sec-head"><h3>${SEC_NAME[sec]} · Off</h3>
+          ${moreBtn(`data-action="section" data-sec="${sec}"`, `${SEC_NAME[sec]} options`)}</div>
+        <p class="off-note">${plural(items.length, 'stretch').replace('stretchs', 'stretches')} kept. ⋯ to turn back on.</p>
+      </section>`;
+    }
+    return `<section class="sec">
+      <div class="sec-head"><h2>${SEC_NAME[sec]}</h2><span class="sec-time">+${Math.max(1, Math.round(secs / 60))}m</span>
         ${moreBtn(`data-action="section" data-sec="${sec}"`, `${SEC_NAME[sec]} options`)}</div>
       <div class="reorder">${items.map((it, i) => row(it, sec, -1, i, it.sets, items.length)).join('')}</div>
     </section>`;
@@ -731,10 +739,10 @@
     const d = day();
     const st = E.dayStats(d);
     const a = state.active && state.active.date === t ? state.active : null;
-    const blocks = d.blocks.map((b, bi) => `<div class="block">
-        <div class="sec-head"><h3>${esc(blockLabel(b))}</h3>
+    const blocks = d.blocks.map((b, bi) => `<div class="block ${b.off ? 'off' : ''}">
+        <div class="sec-head"><h3>${esc(blockLabel(b))}${b.off ? ' · Off' : ''}</h3>
           ${moreBtn(`data-action="block" data-b="${bi}"`, `Block ${bi + 1} options`)}</div>
-        <div class="circuit reorder">${b.items.map((it, i) => row(it, 'block', bi, i, b.rounds, b.items.length)).join('') || '<p class="hint" style="padding-bottom:12px">Empty block. Add an exercise to it.</p>'}</div>
+        ${b.off ? `<p class="off-note">${plural(b.items.length, 'exercise')} kept. ⋯ to turn back on.</p>` : `<div class="circuit reorder">${b.items.map((it, i) => row(it, 'block', bi, i, b.rounds, b.items.length)).join('') || '<p class="hint" style="padding-bottom:12px">Empty block. Add an exercise to it.</p>'}</div>`}
       </div>`).join('');
     return `<div class="date">${esc(longDate(t))}</div>
       <div class="day-head"><h1>${esc(d.name)}</h1>
@@ -1210,6 +1218,8 @@
     return `<div class="sheet-top"><button data-action="close">Cancel</button><button class="done" data-action="save-block">Save</button></div>
       <h1 id="sheet-title" class="detail-name" tabindex="-1">${esc(x.name.trim() || `Block ${sheet.b + 1}`)}</h1>
       <p class="lead">${n > 1 ? `A circuit: each of the ${n} exercises once per round.` : 'One exercise, repeated each round.'}</p>
+      <div class="field"><span>Include in workout</span>${seg('block-on', x.off ? 'off' : 'on', [['on', 'On'], ['off', 'Off']])}
+        ${x.off ? '<p class="hint">Kept here but skipped when you start the workout.</p>' : ''}</div>
       <label class="field"><span>Name</span><input type="text" data-field="name" value="${esc(x.name)}" placeholder="Timed intervals" maxlength="40" autocomplete="off"></label>
       <div class="field"><span>Rounds</span>${stepper('rounds', x.rounds, 'rounds', 1, 8)}</div>
       ${n > 1 ? `<div class="field"><span>Rest between exercises</span>${stepper('rest', x.rest, 'rest', 0, 60, (v) => (v ? E.clock(v) : 'None'))}</div>` : ''}
@@ -1495,6 +1505,11 @@
       }
       return;
     }
+    if (sheet.type === 'block' && field === 'block-on') {
+      sheet.draft.off = value === 'off';
+      renderSheet();
+      return;
+    }
     if (sheet.type === 'section') {
       const d = day();
       if (sheet.sec === 'warmup') d.warmupOn = value === 'on';
@@ -1737,7 +1752,7 @@
       case 'block': {
         const bl = day().blocks[b];
         const secs = bl.items.map((x) => x.seconds);
-        openSheet({ type: 'block', b, draft: { name: bl.name || '', rounds: bl.rounds, rest: bl.rest, roundRest: bl.roundRest, allSeconds: secs[0] || 45, allTouched: false } });
+        openSheet({ type: 'block', b, draft: { name: bl.name || '', off: !!bl.off, rounds: bl.rounds, rest: bl.rest, roundRest: bl.roundRest, allSeconds: secs[0] || 45, allTouched: false } });
         break;
       }
       case 'section':
@@ -1817,6 +1832,7 @@
         const bl = day().blocks[sheet.b];
         const x = sheet.draft;
         bl.name = x.name.trim().slice(0, 40);
+        bl.off = !!x.off;
         bl.rounds = x.rounds;
         bl.rest = x.rest;
         bl.roundRest = x.roundRest;

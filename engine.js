@@ -21,7 +21,7 @@
   // Bump on every release, together with package.json, the CACHE name in sw.js
   // and a line in CHANGELOG.md (a test checks they agree). A new cache name is
   // what makes phones download the new files.
-  const VERSION = '1.14.0';
+  const VERSION = '1.15.0';
   const RELEASED = '2026-11-26';
 
   // ---------- dates (local calendar days as YYYY-MM-DD) ----------
@@ -284,7 +284,7 @@
   };
 
   /** Bumped when a built-in routine is added; existing data gets it once. */
-  const SEED_VERSION = 4;
+  const SEED_VERSION = 5;
   const SEED_ADDED = { conditioning: 2, mobility: 3, 'upper-b': 4, 'lower-b': 4 };
 
   // ---------- library ----------
@@ -474,6 +474,53 @@
     ],
   };
 
+  // ---------- Mobility Flow: the warm-up for every routine ----------
+  //
+  // 12 moves × 30 s, one round, no rest. It's the first block of every
+  // routine and replaces the old warm-ups, which are turned off but kept.
+
+  const FLOW = [
+    ['body-bounces', 'Body Bounces', ['calves', 'quads'], 'Light bounce through the knees and heels. Shake out the arms and shoulders.'],
+    ['trunk-twists', 'Trunk Twists', ['abs', 'lower-back'], 'Feet planted, arms loose. Rotate side to side and let the hips follow.'],
+    ['body-waves', 'Body Waves', ['abs', 'lower-back'], 'Roll a wave down the body: chest forward, then belly, then hips. Smooth and loose.'],
+    ['full-twists', 'Full Twists', ['abs', 'lower-back', 'shoulders'], 'Rotate all the way round, pivot the back foot, arms reaching. Alternate sides.'],
+    ['arm-swings', 'Arm Swings', ['shoulders', 'chest'], 'Swing the arms open wide, then cross them in front. Finish with big circles.'],
+    ['plie-squats', 'Plié Squats', ['quads', 'glutes', 'abductors'], 'Wide stance, toes out. Sink straight down, knees over toes, stand tall.'],
+    ['deep-squat-reach', 'Deep Squat Reach', ['quads', 'glutes', 'shoulders'], 'Sit in a deep squat, reach one arm to the ceiling and rotate. Alternate.'],
+    ['down-up-dogs', 'Down Up Dogs', ['hamstrings', 'shoulders', 'abs'], 'Flow from downward dog to upward dog and back, with the breath.'],
+    ['straddle', 'Straddle', ['hamstrings', 'abductors'], 'Sit with legs wide. Walk the hands forward and fold, long spine. Reach to each side.'],
+    ['ninety-nineties', '90/90s', ['glutes', 'abductors'], 'Seated, both knees at 90°. Rotate the knees side to side, hands off the floor if you can.'],
+    ['runners-lunge-reach', 'Runner’s Lunge Reach', ['quads', 'hamstrings'], 'Low lunge, hands inside the front foot, reach the inside arm up. Alternate sides each rep.'],
+    ['spinal-waves', 'Spinal Waves', ['lower-back', 'abs'], 'On hands and knees, roll the spine one segment at a time, head to tail, then back.'],
+  ];
+
+  function flowBlock(dayId) {
+    return {
+      id: `flow-${dayId}`, name: 'Mobility Flow', rounds: 1, rest: 0, roundRest: 0,
+      items: FLOW.map(([id, name, muscles, cue]) => ({
+        id: `flow-${dayId}-${id}`, name, muscles, kind: 'interval', sets: 2, seconds: 30, reps: 8, weight: null, sides: 'none', cue, trend: null, equipment: 'bodyweight',
+      })),
+    };
+  }
+
+  // Blocks that were a routine's warm-up before the flow took over.
+  const OLD_WARMUP_BLOCKS = new Set(['c-warm', 'm-prep']);
+
+  /**
+   * Put the Mobility Flow first in a routine and turn its old warm-up off
+   * (warm-up stretches, or the built-in warm-up blocks). Nothing is deleted.
+   * Does nothing if the routine already has the flow. Returns true if changed.
+   */
+  function addFlow(day) {
+    if (day.blocks.some((b) => /^flow-/.test(b.id))) return false;
+    day.blocks.unshift(flowBlock(day.id));
+    day.warmupOn = false;
+    for (const b of day.blocks) if (OLD_WARMUP_BLOCKS.has(b.id)) b.off = true;
+    return true;
+  }
+
+  for (const d of Object.values(SEED_DAYS)) addFlow(d);
+
   // ---------- no running: rowing instead ----------
 
   /**
@@ -629,6 +676,7 @@
     return {
       id: str(b.id) || `b-${rid()}`,
       name: str(b.name).trim().slice(0, 40),
+      off: b.off === true, // kept, but skipped in the workout
       rounds: int(b.rounds, 1, 10, 3),
       rest: int(b.rest, 0, 300, 15),
       roundRest: int(b.roundRest, 0, 600, 30),
@@ -691,6 +739,7 @@
     // Built-in routines added since this data was saved (once; deleting one later sticks).
     else for (const [id, v] of Object.entries(SEED_ADDED)) if (v > seedVersion && !days[id]) days[id] = JSON.parse(JSON.stringify(SEED_DAYS[id]));
     if (seedVersion < 4) runningToRowing(days);
+    if (seedVersion < 5) for (const d of Object.values(days)) addFlow(d);
     // Rotation order: the saved order first, then any routine it's missing.
     const order = (Array.isArray(raw.order) ? raw.order : []).filter((id, k, a) => days[id] && a.indexOf(id) === k);
     for (const id of Object.keys(days)) if (!order.includes(id)) order.push(id);
@@ -769,14 +818,14 @@
     const all = opts.all === true;
     const out = [];
     if (all || day.warmupOn) day.warmup.forEach((it) => out.push({ item: it, section: 'warmup', block: -1, rounds: it.sets }));
-    day.blocks.forEach((b, bi) => b.items.forEach((it) => out.push({ item: it, section: 'block', block: bi, rounds: b.rounds })));
+    day.blocks.forEach((b, bi) => { if (all || !b.off) b.items.forEach((it) => out.push({ item: it, section: 'block', block: bi, rounds: b.rounds })); });
     if (all || day.cooldownOn) day.cooldown.forEach((it) => out.push({ item: it, section: 'cooldown', block: -1, rounds: it.sets }));
     return out;
   }
 
-  /** Counts for the header: "14 Exercises • 7 Muscles" (everything in the day, on or off). */
+  /** Counts for the header: what the workout will actually include (off sections and blocks aren't counted). */
   function dayStats(day) {
-    const flat = flatten(day, { all: true });
+    const flat = flatten(day);
     const muscles = new Set(flat.flatMap((f) => f.item.muscles));
     return { exercises: flat.length, muscles: muscles.size, muscleIds: [...muscles] };
   }
@@ -887,7 +936,7 @@
         if (at >= -0.05) out.push({ at: Math.max(0, at), cue: 'tick' });
       }
     }
-    if (s.kind === 'work' && s.section === 'block' && s.duration >= 30) {
+    if (s.kind === 'work' && s.section === 'block' && s.duration >= 40) {
       const at = s.duration / 2 - elapsed;
       if (at > 0.05) out.push({ at, cue: 'half' });
     }
@@ -1194,7 +1243,7 @@
     MUSCLES, MUSCLE_IDS, SEED_DAYS, SEED_VERSION, library, EQUIPMENT, filterLibrary, fromLibrary, defaultSettings, freshState, normalize, cleanItem, cleanWeight,
     clock, lb, describe, flatten, dayStats,
     INTRO_SECONDS, READY_SECONDS, buildPlan, enterCue, stepCues, workTargets, workDone, backTarget, estimateSeconds, sectionSeconds, summarize,
-    runningToRowing,
+    runningToRowing, addFlow, flowBlock, FLOW,
     DEFAULT_ROTATION, defaultRotation, cleanRotation, advanceRotation, removeFromRotation,
     weightStep, stepSeconds, progress, weightSuggestion, PROGRESS_DAYS, trendFor, nextDay, nextInOrder, newRoutine, moveTo, dropIndex,
     workoutDays, weekStreak, weekCount, muscleReport, lastWeight,

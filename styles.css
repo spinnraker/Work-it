@@ -99,7 +99,7 @@ h1 { font-size: 34px; font-weight: 700; letter-spacing: -.02em; line-height: 1.1
 .sec-head h2 { flex: 1; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
 .sec-head h3 { flex: 1; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .sec-time { font-size: 15px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
-.sec.off .ex { opacity: .4; }
+.sec.off .ex, .block.off .ex { opacity: .4; }
 .sec.off .sec-time { text-decoration: line-through; }
 .block + .block { margin-top: 8px; }
 
@@ -434,3 +434,7 @@ textarea:focus { border-color: var(--fg); }
 .rot-pick small { display: block; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
 .rot-btn { flex: none; width: 38px; height: 44px; font-size: 20px; color: var(--muted); text-align: center; }
 .rot-btn:disabled { color: var(--line); }
+
+/* Turned-off warm-up / blocks: one line instead of a greyed list. */
+.sec.collapsed .sec-head { min-height: 48px; }
+.off-note { font-size: 14px; color: var(--muted); margin: -6px 0 10px; }
