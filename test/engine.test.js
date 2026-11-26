@@ -559,22 +559,21 @@ test('removing a routine from the rotation keeps up-next on the same slot', () =
 });
 
 test('Mobility Flow: first block of every routine, replacing the old warm-ups', () => {
-  assert.equal(E.FLOW.length, 12);
+  assert.equal(E.FLOW.length, 10);
   for (const d of Object.values(E.SEED_DAYS)) {
     const f = d.blocks[0];
     assert.equal(f.name, 'Mobility Flow', d.name);
     assert.equal(f.rounds, 1);
     assert.equal(f.rest, 0);
-    assert.deepEqual(f.items.map((x) => x.seconds), new Array(12).fill(30));
-    assert.equal(f.items[0].name, 'Body Bounces');
-    assert.equal(f.items[11].name, 'Spinal Waves');
+    assert.deepEqual(f.items.map((x) => x.seconds), new Array(10).fill(30));
+    assert.deepEqual(f.items.map((x) => x.name), ['Body Waves', 'Zen Swings', 'Arm Swings', 'Lymphatic Steps', 'Full Twists', 'March Claps', 'Squat Reaches', 'Down Up Dogs', 'Cossack Side Lunge', '90/90']);
     assert.equal(d.warmupOn, false, `${d.name}: warm-up stretches off`);
     assert.ok(d.warmup.length === 0 || d.warmup.every((x) => x.name), 'old warm-up kept');
     const plan = E.buildPlan(d);
     const flat = E.flatten(d);
-    assert.equal(flat[plan.find((x) => x.kind === 'work').ex].item.name, 'Body Bounces', 'the flow runs first');
+    assert.equal(flat[plan.find((x) => x.kind === 'work').ex].item.name, 'Body Waves', 'the flow runs first');
     const min = E.estimateSeconds(plan) / 60;
-    assert.ok(min > 30 && min < 37, `${d.name}: ${min}`);
+    assert.ok(min > 29 && min < 36, `${d.name}: ${min}`);
   }
   // Old warm-up blocks are off (skipped) but still there.
   const c = E.SEED_DAYS.conditioning.blocks.find((b) => b.name === 'Warm-up');
@@ -587,7 +586,7 @@ test('Mobility Flow: first block of every routine, replacing the old warm-ups', 
   const steps = E.buildPlan(E.SEED_DAYS.upper);
   const flat = E.flatten(E.SEED_DAYS.upper);
   const at = (name) => steps.findIndex((x) => x.kind === 'work' && flat[x.ex].item.name === name);
-  assert.ok(!E.stepCues(steps, at('Trunk Twists')).some((x) => x.cue === 'half'));
+  assert.ok(!E.stepCues(steps, at('Zen Swings')).some((x) => x.cue === 'half'));
   assert.ok(E.stepCues(steps, at('Pull Up')).some((x) => x.cue === 'half'));
 });
 
@@ -618,4 +617,39 @@ test('Mobility Flow is added once to saved routines, custom ones included', () =
   assert.equal(again.days.conditioning.blocks.find((b) => b.id === 'c-warm').off, false);
   // The flow's moves are in the library.
   assert.ok(E.library().some((x) => x.name === 'Down Up Dogs' && x.equipment === 'bodyweight'));
+});
+
+test('1.16: saved flows get the new 10 moves, keeping their place and on/off', () => {
+  const s = clone(E.freshState());
+  s.seedVersion = 5;
+  const old = ['Body Bounces', 'Trunk Twists', 'Body Waves', 'Full Twists', 'Arm Swings', 'Plié Squats', 'Deep Squat Reach', 'Down Up Dogs', 'Straddle', '90/90s', 'Runner’s Lunge Reach', 'Spinal Waves'];
+  for (const d of Object.values(s.days)) d.blocks[0].items = old.map((name, k) => ({ id: `flow-${d.id}-o${k}`, name, kind: 'interval', seconds: 30, muscles: ['abs'] }));
+  // Moved further down and turned off in one routine; a custom routine with a flow too.
+  const lb = s.days['lower-b'];
+  lb.blocks.push(lb.blocks.shift());
+  lb.blocks[lb.blocks.length - 1].off = true;
+  s.days['r-hotel'] = { id: 'r-hotel', name: 'Hotel TRX', warmupOn: false, cooldownOn: true, warmup: [], cooldown: [], blocks: [
+    { id: 'flow-r-hotel', name: 'Mobility Flow', rounds: 1, rest: 0, roundRest: 0, items: old.slice(0, 3).map((name, k) => ({ id: `x${k}`, name, kind: 'interval', seconds: 30, muscles: ['abs'] })) },
+    { id: 'h', rounds: 2, items: [{ id: 'h1', name: 'TRX Row', kind: 'interval', seconds: 45, muscles: ['lats'] }] }] };
+  s.order.push('r-hotel');
+  const n = E.normalize(s).state;
+  for (const d of Object.values(n.days)) {
+    const f = d.blocks.find((b) => /^flow-/.test(b.id));
+    assert.deepEqual(f.items.map((x) => x.name).slice(0, 2), ['Body Waves', 'Zen Swings'], d.name);
+    assert.equal(f.items.length, 10);
+    assert.equal(d.blocks.filter((b) => /^flow-/.test(b.id)).length, 1);
+    const ids = E.flatten(d, { all: true }).map((x) => x.item.id);
+    assert.equal(new Set(ids).size, ids.length, `${d.name}: unique ids`);
+  }
+  const nlb = n.days['lower-b'];
+  assert.ok(/^flow-/.test(nlb.blocks[nlb.blocks.length - 1].id), 'kept its place');
+  assert.equal(nlb.blocks[nlb.blocks.length - 1].off, true, 'kept off');
+  assert.equal(n.days['r-hotel'].blocks[1].items[0].name, 'TRX Row');
+  // Later loads leave a flow you've edited alone.
+  n.days.upper.blocks[0].items[0].seconds = 45;
+  assert.equal(E.normalize(clone(n)).state.days.upper.blocks[0].items[0].seconds, 45);
+  // Library has the new moves, not the old ones.
+  const lib = E.library().map((x) => x.name);
+  assert.ok(lib.includes('Zen Swings') && lib.includes('Cossack Side Lunge'));
+  assert.ok(!lib.includes('Body Bounces') && !lib.includes('Spinal Waves'));
 });

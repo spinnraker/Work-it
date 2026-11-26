@@ -44,7 +44,7 @@ No dependencies and no build step. To put it on your iPhone, host the folder on 
 
 If you already had the app, Conditioning is added once to the end of your routines; delete it and it stays deleted. Set kettlebell weights with ⋯ on each move.
 
-**Mobility Flow** is the first block of every routine (yours too) and is the warm-up: 12 moves × 0:30, one round, no rest. Body Bounces · Trunk Twists · Body Waves · Full Twists · Arm Swings · Plié Squats · Deep Squat Reach · Down Up Dogs · Straddle · 90/90s · Runner’s Lunge Reach · Spinal Waves. The old warm-ups are turned off, not deleted: the warm-up stretches (⋯ on Warm-up), Conditioning’s Warm-up block and Mobility’s Movement Prep (⋯ on the block → Include in workout). With the flow, routines run about 31–36 minutes.
+**Mobility Flow** is the first block of every routine (yours too) and is the warm-up: 10 moves × 0:30, one round, no rest (about 5 minutes). Body Waves · Zen Swings · Arm Swings · Lymphatic Steps · Full Twists · March Claps · Squat Reaches · Down Up Dogs · Cossack Side Lunge · 90/90. The old warm-ups are turned off, not deleted: the warm-up stretches (⋯ on Warm-up), Conditioning’s Warm-up block and Mobility’s Movement Prep (⋯ on the block → Include in workout). With the flow, routines run about 30–35 minutes.
 
 **Upper Body Day B** and **Lower Body Day B**: same shape as the A days, different moves, for variety. Alternate them with the A days.
 

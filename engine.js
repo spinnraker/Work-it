@@ -21,7 +21,7 @@
   // Bump on every release, together with package.json, the CACHE name in sw.js
   // and a line in CHANGELOG.md (a test checks they agree). A new cache name is
   // what makes phones download the new files.
-  const VERSION = '1.15.0';
+  const VERSION = '1.16.0';
   const RELEASED = '2026-11-26';
 
   // ---------- dates (local calendar days as YYYY-MM-DD) ----------
@@ -284,7 +284,7 @@
   };
 
   /** Bumped when a built-in routine is added; existing data gets it once. */
-  const SEED_VERSION = 5;
+  const SEED_VERSION = 6;
   const SEED_ADDED = { conditioning: 2, mobility: 3, 'upper-b': 4, 'lower-b': 4 };
 
   // ---------- library ----------
@@ -476,22 +476,20 @@
 
   // ---------- Mobility Flow: the warm-up for every routine ----------
   //
-  // 12 moves × 30 s, one round, no rest. It's the first block of every
+  // 10 moves × 30 s, one round, no rest. It's the first block of every
   // routine and replaces the old warm-ups, which are turned off but kept.
 
   const FLOW = [
-    ['body-bounces', 'Body Bounces', ['calves', 'quads'], 'Light bounce through the knees and heels. Shake out the arms and shoulders.'],
-    ['trunk-twists', 'Trunk Twists', ['abs', 'lower-back'], 'Feet planted, arms loose. Rotate side to side and let the hips follow.'],
     ['body-waves', 'Body Waves', ['abs', 'lower-back'], 'Roll a wave down the body: chest forward, then belly, then hips. Smooth and loose.'],
-    ['full-twists', 'Full Twists', ['abs', 'lower-back', 'shoulders'], 'Rotate all the way round, pivot the back foot, arms reaching. Alternate sides.'],
+    ['zen-swings', 'Zen Swings', ['abs', 'lower-back'], 'Feet planted, knees soft. Let the arms swing loosely around you as the torso turns side to side. Relaxed rhythm.'],
     ['arm-swings', 'Arm Swings', ['shoulders', 'chest'], 'Swing the arms open wide, then cross them in front. Finish with big circles.'],
-    ['plie-squats', 'Plié Squats', ['quads', 'glutes', 'abductors'], 'Wide stance, toes out. Sink straight down, knees over toes, stand tall.'],
-    ['deep-squat-reach', 'Deep Squat Reach', ['quads', 'glutes', 'shoulders'], 'Sit in a deep squat, reach one arm to the ceiling and rotate. Alternate.'],
+    ['lymphatic-steps', 'Lymphatic Steps', ['calves', 'quads'], 'Light steps in place, rolling up onto the toes, arms loose. Easy bounce, rhythm over effort.'],
+    ['full-twists', 'Full Twists', ['abs', 'lower-back', 'shoulders'], 'Rotate all the way round, pivot the back foot, arms reaching. Alternate sides.'],
+    ['march-claps', 'March Claps', ['abs', 'quads'], 'March in place with high knees, clapping under each knee.'],
+    ['squat-reaches', 'Squat Reaches', ['quads', 'glutes', 'shoulders'], 'Sit in a deep squat, reach one arm to the ceiling and rotate. Alternate.'],
     ['down-up-dogs', 'Down Up Dogs', ['hamstrings', 'shoulders', 'abs'], 'Flow from downward dog to upward dog and back, with the breath.'],
-    ['straddle', 'Straddle', ['hamstrings', 'abductors'], 'Sit with legs wide. Walk the hands forward and fold, long spine. Reach to each side.'],
-    ['ninety-nineties', '90/90s', ['glutes', 'abductors'], 'Seated, both knees at 90°. Rotate the knees side to side, hands off the floor if you can.'],
-    ['runners-lunge-reach', 'Runner’s Lunge Reach', ['quads', 'hamstrings'], 'Low lunge, hands inside the front foot, reach the inside arm up. Alternate sides each rep.'],
-    ['spinal-waves', 'Spinal Waves', ['lower-back', 'abs'], 'On hands and knees, roll the spine one segment at a time, head to tail, then back.'],
+    ['cossack-side-lunge', 'Cossack Side Lunge', ['quads', 'glutes', 'abductors'], 'Wide stance. Sit into one side, other leg straight with toes up. Alternate sides.'],
+    ['ninety-ninety', '90/90', ['glutes', 'abductors'], 'Seated, both knees at 90°. Rotate the knees side to side, hands off the floor if you can.'],
   ];
 
   function flowBlock(dayId) {
@@ -740,6 +738,8 @@
     else for (const [id, v] of Object.entries(SEED_ADDED)) if (v > seedVersion && !days[id]) days[id] = JSON.parse(JSON.stringify(SEED_DAYS[id]));
     if (seedVersion < 4) runningToRowing(days);
     if (seedVersion < 5) for (const d of Object.values(days)) addFlow(d);
+    // 1.16: the flow's moves changed. Every flow block gets the new list; it keeps its place, name and on/off.
+    if (seedVersion < 6) for (const d of Object.values(days)) for (const b of d.blocks) if (/^flow-/.test(b.id)) b.items = flowBlock(d.id).items;
     // Rotation order: the saved order first, then any routine it's missing.
     const order = (Array.isArray(raw.order) ? raw.order : []).filter((id, k, a) => days[id] && a.indexOf(id) === k);
     for (const id of Object.keys(days)) if (!order.includes(id)) order.push(id);
