@@ -438,3 +438,11 @@ textarea:focus { border-color: var(--fg); }
 /* Turned-off warm-up / blocks: one line instead of a greyed list. */
 .sec.collapsed .sec-head { min-height: 48px; }
 .off-note { font-size: 14px; color: var(--muted); margin: -6px 0 10px; }
+
+/* ---------- voice picker ---------- */
+
+.voices { margin-top: 10px; }
+.voice-row b { font-weight: 400; }
+.voice-row[aria-pressed="true"] b { font-weight: 600; }
+.voice-row[aria-pressed="true"] span { color: var(--fg); font-weight: 700; }
+.voice-row em { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-left: 6px; }

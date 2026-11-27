@@ -200,6 +200,42 @@
     return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
   }
 
+  // ---------- voice ----------
+  //
+  // Web pages can only use voices installed on the phone. Apple's "Premium"
+  // and "Enhanced" voices sound far better than the default ones; they're free
+  // but have to be downloaded once in iOS Settings (see Settings in the app).
+
+  // Built-in novelty voices on Apple devices; not useful for exercise cues.
+  const NOVELTY = new Set(['Albert', 'Bad News', 'Bahh', 'Bells', 'Boing', 'Bubbles', 'Cellos', 'Good News', 'Jester',
+    'Organ', 'Superstar', 'Trinoids', 'Whisper', 'Wobble', 'Zarvox', 'Deranged', 'Hysterical', 'Pipe Organ', 'Eddy', 'Flo',
+    'Grandma', 'Grandpa', 'Reed', 'Rocko', 'Sandy', 'Shelley']);
+  const hasSpeech = () => 'speechSynthesis' in window && typeof SpeechSynthesisUtterance === 'function';
+
+  /** Voices in the phone's language (or English), best-sounding first. */
+  function voiceList() {
+    if (!hasSpeech()) return [];
+    const all = speechSynthesis.getVoices().filter((v) => !NOVELTY.has(v.name.replace(/ \(.*\)$/, '')));
+    const lang = (navigator.language || 'en').slice(0, 2).toLowerCase();
+    let list = all.filter((v) => v.lang.toLowerCase().startsWith(lang));
+    if (!list.length) list = all.filter((v) => v.lang.toLowerCase().startsWith('en'));
+    const rank = (v) => (/premium/i.test(v.name) ? 0 : /enhanced|neural|natural/i.test(v.name) ? 1 : /google|siri/i.test(v.name) ? 2 : 3);
+    const local = (v) => (v.lang.toLowerCase() === (navigator.language || '').toLowerCase() ? 0 : 1);
+    const seen = new Set();
+    return list.filter((v) => !seen.has(v.name) && seen.add(v.name))
+      .sort((a, b) => rank(a) - rank(b) || local(a) - local(b) || a.name.localeCompare(b.name));
+  }
+
+  function voiceQuality(v) {
+    return /premium/i.test(v.name) ? 'Premium' : /enhanced|neural|natural/i.test(v.name) ? 'Enhanced' : '';
+  }
+
+  /** The chosen voice, or the best one installed. */
+  function pickVoice(name) {
+    const list = voiceList();
+    return (name && list.find((v) => v.name === name)) || list[0] || null;
+  }
+
   const Cues = {
     ctx: null,
     out: null,
@@ -207,11 +243,23 @@
     tones: true,
     mode: 'mix',
     live: new Set(), // scheduled oscillators, so pause/skip can silence them
+    voice: true,
+    voiceName: '',
+    voiceRate: 1,
+    held: [], // iOS drops utterances that get garbage-collected mid-speech
+    talk: [], // pending speech timers
 
     /** Must run inside a tap: iOS only allows audio after a user gesture. */
     unlock(opts) {
       this.tones = opts.tones;
       this.mode = opts.audioMode === 'silent' ? 'silent' : 'mix';
+      this.voice = opts.voice !== false;
+      this.voiceName = opts.voiceName || '';
+      this.voiceRate = opts.voiceRate || 1;
+      // iOS only lets a page speak after it has spoken inside a tap.
+      if (this.voice && hasSpeech()) {
+        try { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(' ')); } catch (e) { /* no speech */ }
+      }
       if (!this.tones) return;
       try {
         if (navigator.audioSession) navigator.audioSession.type = this.mode === 'silent' ? 'playback' : 'ambient';
@@ -272,10 +320,35 @@
         o.stop(t + ms / 1000 + 0.02);
       } catch (e) { /* ignore */ }
     },
-    /** Silence everything scheduled (pause, skip, back, end). */
+    /** Silence everything scheduled (pause, skip, back, end): tones and speech. */
     cancel() {
       for (const o of this.live) { try { o.onended = null; o.stop(); o.disconnect(); } catch (e) { /* already done */ } }
       this.live.clear();
+      this.talk.forEach(clearTimeout);
+      this.talk = [];
+      if (hasSpeech()) try { speechSynthesis.cancel(); } catch (e) { /* ignore */ }
+    },
+    say(text) {
+      if (!this.voice || !hasSpeech() || !text) return;
+      try {
+        const u = new SpeechSynthesisUtterance(text);
+        const v = pickVoice(this.voiceName);
+        // If the voice can't be used, speak with the default one rather than not at all.
+        if (v) { try { u.voice = v; u.lang = v.lang; } catch (e) { /* default voice */ } }
+        u.rate = this.voiceRate;
+        u.volume = 1;
+        this.held.push(u);
+        if (this.held.length > 20) this.held.shift();
+        speechSynthesis.speak(u);
+      } catch (e) { /* ignore */ }
+    },
+    /** Schedule speech from E.stepSpeech: [{ at: seconds from now, text }]. */
+    speak(list) {
+      if (!this.voice) return;
+      for (const { at, text } of list) {
+        if (at < 0.05) this.say(text);
+        else this.talk.push(setTimeout(() => this.say(text), at * 1000));
+      }
     },
     /** Schedule cues from E.stepCues: [{ at: seconds from now, cue }]. */
     play(list) {
@@ -385,6 +458,11 @@
     if (!step) return;
     const elapsed = Math.max(0, (Date.now() - R.stepStart) / 1000);
     Cues.play(E.stepCues(R.steps, R.index, elapsed));
+    const snap = state.active.snapshot;
+    Cues.speak(E.stepSpeech(R.steps, R.index, elapsed, {
+      item: (ex) => R.flat[ex] && R.flat[ex].item,
+      blockName: (bi) => (snap.blocks[bi] && snap.blocks[bi].name) || '',
+    }));
   }
 
   /**
@@ -1424,6 +1502,28 @@
 
   // ----- settings -----
 
+  function voiceFields(s) {
+    if (!hasSpeech()) return '<p class="hint">This browser can’t speak.</p>';
+    const list = voiceList();
+    const cur = pickVoice(s.voiceName);
+    const best = list[0];
+    const rows = list.slice(0, 12).map((v) => {
+      const on = cur && v.name === cur.name;
+      const q = voiceQuality(v);
+      return `<button class="row-btn voice-row" data-action="pick-voice" data-value="${esc(v.name)}" aria-pressed="${on}">
+        <b>${esc(v.name.replace(/ \((Premium|Enhanced)\)$/i, ''))}${q ? ` <em>${q}</em>` : ''}</b><span>${on ? '✓' : esc(v.lang)}</span></button>`;
+    }).join('');
+    const premium = list.some((v) => voiceQuality(v) === 'Premium');
+    const RATES = [[0.9, 'Calm'], [1, 'Normal'], [1.1, 'Brisk']];
+    const rate = RATES.reduce((a, [v]) => (Math.abs(v - s.voiceRate) < Math.abs(a - s.voiceRate) ? v : a), 1);
+    return `<div class="field"><span>Which voice</span>
+        <div class="rows voices">${rows || '<p class="hint">Loading voices…</p>'}</div>
+        ${s.voiceName && best && s.voiceName !== best.name ? '' : '<p class="hint">Using the best voice on this phone.</p>'}
+        ${premium ? '' : `<p class="hint"><b>For a premium voice on iPhone:</b> Settings → Accessibility → Spoken Content → Voices → English, pick a voice marked <b>Premium</b> (e.g. Ava, Zoe or Evan) and download it. Then come back here and choose it.</p>`}</div>
+      <div class="field"><span>Voice speed</span>${seg('voiceRate', rate, RATES)}
+        <div class="form-actions" style="margin-top:14px"><button class="btn ghost block" data-action="test-voice">Test voice</button></div></div>`;
+  }
+
   function settingsSheet() {
     const s = state.settings;
     return `<div class="sheet-top"><span></span><button class="done" data-action="close">Done</button></div>
@@ -1436,6 +1536,9 @@
           : '<b>Play on silent:</b> cues play even with the side switch on silent, but iPhone pauses your music during a workout. It comes back when you finish.'}
         iPhone only lets a web app do one or the other.</p>
         <div class="form-actions" style="margin-top:14px"><button class="btn ghost block" data-action="test-sound">Test sound</button></div></div>
+      <div class="field"><span>Voice</span>${seg('voice', s.voice ? 'on' : 'off', [['on', 'On'], ['off', 'Off']])}
+        <p class="hint">Announces the next exercise by name: during rests, 6 seconds before back-to-back moves switch, and at the start of each block.</p></div>
+      ${s.voice ? voiceFields(s) : ''}
       <div class="field"><span>Dynamic stretch pace</span>${stepper('repSeconds', s.repSeconds, 'pace', 2, 6, (v) => `${v} s per rep`)}</div>
       <div class="section-label">Data</div>
       <div class="rows">
@@ -1496,6 +1599,14 @@
       const s = state.settings;
       if (field === 'tones') s.tones = value === 'on';
       if (field === 'audioMode') s.audioMode = value === 'silent' ? 'silent' : 'mix';
+      if (field === 'voice') s.voice = value === 'on';
+      if (field === 'voiceRate') s.voiceRate = Number(value) || 1;
+      if (field === 'voice' || field === 'voiceRate') {
+        save();
+        renderSheet();
+        if (s.voice) { Cues.unlock(s); Cues.say('Next: Dumbbell bench press.'); }
+        return;
+      }
       save();
       renderSheet();
       if (s.tones && (field === 'tones' || field === 'audioMode')) {
@@ -1889,6 +2000,17 @@
       }
 
       // settings
+      case 'pick-voice':
+        state.settings.voiceName = ds.value;
+        save();
+        renderSheet();
+        Cues.unlock(state.settings);
+        Cues.say('Next: Mobility flow. First up: body waves.');
+        break;
+      case 'test-voice':
+        Cues.unlock(state.settings);
+        Cues.say('Next: Dumbbell bench press.');
+        break;
       case 'test-sound':
         Cues.unlock(state.settings);
         if (!state.settings.tones) { toast('Sounds are off'); break; }
@@ -1953,6 +2075,11 @@
   });
   window.addEventListener('pagehide', () => { if (R) pause(); });
   setInterval(checkDay, 60000);
+
+  // Voices load asynchronously in most browsers.
+  if (hasSpeech()) {
+    speechSynthesis.addEventListener('voiceschanged', () => { if (sheet && sheet.type === 'settings') renderSheet(); });
+  }
 
   // ---------- updates ----------
   //

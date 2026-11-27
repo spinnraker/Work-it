@@ -21,8 +21,8 @@
   // Bump on every release, together with package.json, the CACHE name in sw.js
   // and a line in CHANGELOG.md (a test checks they agree). A new cache name is
   // what makes phones download the new files.
-  const VERSION = '1.16.0';
-  const RELEASED = '2026-11-26';
+  const VERSION = '1.17.0';
+  const RELEASED = '2026-11-27';
 
   // ---------- dates (local calendar days as YYYY-MM-DD) ----------
 
@@ -605,6 +605,9 @@
       // 'mix': cues play over your music (iPhone: needs the ringer on).
       // 'silent': cues play with the ringer off, but music pauses.
       audioMode: 'mix',
+      voice: true, // announce the next exercise
+      voiceName: '', // '' = the best voice installed
+      voiceRate: 1,
       repSeconds: 3, // pace for dynamic stretches
     };
   }
@@ -747,6 +750,9 @@
     const settings = {
       tones: s.tones !== false,
       audioMode: s.audioMode === 'silent' ? 'silent' : 'mix',
+      voice: s.voice !== false,
+      voiceName: str(s.voiceName).slice(0, 200),
+      voiceRate: Number.isFinite(Number(s.voiceRate)) ? Math.min(1.2, Math.max(0.8, Number(s.voiceRate))) : 1,
       repSeconds: int(s.repSeconds, 2, 6, 3),
     };
     const sessions = [];
@@ -948,6 +954,71 @@
       if (c) out.push({ at, cue: c });
     }
     return out.sort((a, b) => a.at - b.at);
+  }
+
+  // ---------- voice ----------
+  //
+  // The voice announces what's next. Wording and timing are worked out here;
+  // the app speaks it with the best voice the phone has.
+
+  const NEXT_WARNING = 6; // seconds before back-to-back intervals switch
+
+  /** An exercise name as it should be read aloud. */
+  function spokenName(name) {
+    return String(name)
+      .replace(/^AMRAP:?\s*/i, 'As many rounds as possible: ')
+      .replace(/\bAlt\.\s*/g, 'Alternating ')
+      .replace(/\bKB\b/g, 'kettlebell')
+      .replace(/\bTRX\b/g, 'T R X')
+      .replace(/\bDB\b/g, 'dumbbell')
+      .replace(/(\d+)\s*\/\s*(\d+)/g, '$1 $2')
+      .replace(/\s*·\s*/g, ', ')
+      .replace(/[()]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /** Just the exercise's name (no weight). */
+  function spokenItem(it) {
+    return it ? spokenName(it.name) : '';
+  }
+
+  /**
+   * What to say during step `i`, `elapsed` seconds in: [{ at, text }].
+   * ctx.item(ex) gives the exercise for a step, ctx.blockName(bi) a block's name.
+   *   intro card       "Mobility flow. First up: Body waves." / "Next: Chest expansion."
+   *   rest             "Next: Dumbbell bench press."
+   *   round rest       "Round 2 of 3. Next: …"
+   *   switching sides  "Switch sides."
+   *   back-to-back     6 s before the end: "Next: Zen swings."
+   * Announcements at the start of a step are skipped when resuming partway in.
+   */
+  function stepSpeech(steps, i, elapsed, ctx) {
+    const s = steps[i];
+    if (!s) return [];
+    const out = [];
+    const atStart = (text) => { if (elapsed < 0.5) out.push({ at: 0, text }); };
+    if (s.kind === 'intro') {
+      if (s.section === 'block') {
+        const title = ctx.blockName(s.block) || 'Timed intervals';
+        atStart(`${title}. ${s.rounds > 1 ? `${s.rounds} rounds. ` : ''}First up: ${spokenItem(ctx.item(s.ex))}.`);
+      } else {
+        const first = i === 0 || steps[i - 1].section !== s.section;
+        const label = s.section === 'warmup' ? 'Warm-up' : 'Cool-down';
+        atStart(first ? `${label}. First up: ${spokenItem(ctx.item(s.ex))}.` : `Next: ${spokenItem(ctx.item(s.ex))}.`);
+      }
+    } else if (s.kind === 'rest') {
+      if (s.label === 'Switch sides') atStart('Switch sides.');
+      else if (s.label === 'Round rest') atStart(`Round ${s.round} of ${s.rounds}. Next: ${spokenItem(ctx.item(s.ex))}.`);
+      else if (s.section === 'block') atStart(`Next: ${spokenItem(ctx.item(s.ex))}.`);
+    } else if (s.kind === 'work') {
+      const next = steps[i + 1];
+      if (next && next.kind === 'work' && next.ex !== s.ex) {
+        const at = Math.max(0, s.duration - NEXT_WARNING) - elapsed;
+        if (at >= 0) out.push({ at, text: `Next: ${spokenItem(ctx.item(next.ex))}.` });
+      }
+    }
+    return out;
   }
 
   function backTarget(steps, index, elapsedMs) {
@@ -1242,7 +1313,7 @@
     toKey, fromKey, addDays, diffDays, weekday, weekStart,
     MUSCLES, MUSCLE_IDS, SEED_DAYS, SEED_VERSION, library, EQUIPMENT, filterLibrary, fromLibrary, defaultSettings, freshState, normalize, cleanItem, cleanWeight,
     clock, lb, describe, flatten, dayStats,
-    INTRO_SECONDS, READY_SECONDS, buildPlan, enterCue, stepCues, workTargets, workDone, backTarget, estimateSeconds, sectionSeconds, summarize,
+    INTRO_SECONDS, READY_SECONDS, buildPlan, enterCue, stepCues, spokenName, spokenItem, stepSpeech, workTargets, workDone, backTarget, estimateSeconds, sectionSeconds, summarize,
     runningToRowing, addFlow, flowBlock, FLOW,
     DEFAULT_ROTATION, defaultRotation, cleanRotation, advanceRotation, removeFromRotation,
     weightStep, stepSeconds, progress, weightSuggestion, PROGRESS_DAYS, trendFor, nextDay, nextInOrder, newRoutine, moveTo, dropIndex,

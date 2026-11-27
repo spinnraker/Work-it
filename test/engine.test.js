@@ -653,3 +653,59 @@ test('1.16: saved flows get the new 10 moves, keeping their place and on/off', (
   assert.ok(lib.includes('Zen Swings') && lib.includes('Cossack Side Lunge'));
   assert.ok(!lib.includes('Body Bounces') && !lib.includes('Spinal Waves'));
 });
+
+test('voice: names read aloud cleanly', () => {
+  assert.equal(E.spokenName('90/90'), '90 90');
+  assert.equal(E.spokenName('Alt. KB Goblet Forward Lunge'), 'Alternating kettlebell Goblet Forward Lunge');
+  assert.equal(E.spokenName('TRX Row'), 'T R X Row');
+  assert.equal(E.spokenName('Kneeling Quad Stretch (Right)'), 'Kneeling Quad Stretch Right');
+  assert.equal(E.spokenName('AMRAP: 8 Pull-Ups · 8 Burpees · 8 Squats'), 'As many rounds as possible: 8 Pull-Ups, 8 Burpees, 8 Squats');
+  assert.equal(E.spokenItem({ name: 'Dumbbell Bench Press', weight: 17.5 }), 'Dumbbell Bench Press', 'name only, no weight');
+  assert.equal(E.spokenItem({ name: 'Plank', weight: null }), 'Plank');
+});
+
+test('voice: announces what is next, at the right moments', () => {
+  const d = E.SEED_DAYS.upper;
+  const steps = E.buildPlan(d);
+  const flat = E.flatten(d);
+  const ctx = { item: (ex) => flat[ex].item, blockName: (bi) => d.blocks[bi].name };
+  const say = (i, el = 0) => E.stepSpeech(steps, i, el, ctx);
+  const idx = (pred) => steps.findIndex(pred);
+  // Block intro: the flow and its first move.
+  assert.deepEqual(say(0), [{ at: 0, text: 'Mobility Flow. First up: Body Waves.' }]);
+  // Back-to-back flow moves: 6 s before the switch.
+  const bw = idx((s) => s.kind === 'work' && flat[s.ex].item.name === 'Body Waves');
+  assert.deepEqual(say(bw), [{ at: 24, text: 'Next: Zen Swings.' }]);
+  assert.deepEqual(say(bw, 20), [{ at: 4, text: 'Next: Zen Swings.' }], 'timed from now');
+  assert.deepEqual(say(bw, 25), [], 'already passed');
+  // The last flow move hands over to an intro card, which does the announcing.
+  const last = idx((s) => s.kind === 'work' && flat[s.ex].item.name === '90/90');
+  assert.deepEqual(say(last), []);
+  // Next block's intro, with rounds.
+  assert.equal(say(last + 1)[0].text, 'Timed intervals. 3 rounds. First up: Pull Up.');
+  // Rest between exercises: the next exercise's name.
+  const r = idx((s) => s.kind === 'rest' && s.label === 'Rest' && flat[s.ex].item.name === 'Dumbbell Bench Press');
+  assert.deepEqual(say(r), [{ at: 0, text: 'Next: Dumbbell Bench Press.' }]);
+  assert.deepEqual(say(r, 3), [], 'no repeat when resuming partway');
+  // Round rest.
+  const rr = idx((s) => s.label === 'Round rest');
+  assert.equal(say(rr)[0].text, 'Round 2 of 3. Next: Pull Up.');
+  // Cool-down: first one is introduced, then "Next".
+  const cd = steps.map((s, i) => [s, i]).filter(([s]) => s.kind === 'intro' && s.section === 'cooldown').map(([, i]) => i);
+  assert.equal(say(cd[0])[0].text, 'Cool-down. First up: Doorway Chest Stretch.');
+  assert.equal(say(cd[1])[0].text, 'Next: Cross-Body Shoulder Stretch.');
+  const sw = idx((s) => s.label === 'Switch sides');
+  assert.deepEqual(say(sw), [{ at: 0, text: 'Switch sides.' }]);
+  // Work followed by a rest says nothing (the rest announces).
+  const pu = idx((s) => s.kind === 'work' && flat[s.ex].item.name === 'Pull Up');
+  assert.deepEqual(say(pu), []);
+});
+
+test('voice settings default on, and are cleaned on load', () => {
+  const st = E.freshState().settings;
+  assert.equal(st.voice, true);
+  assert.equal(st.voiceName, '');
+  assert.equal(st.voiceRate, 1);
+  const n = E.normalize({ days: {}, settings: { voice: false, voiceName: 'Ava (Premium)', voiceRate: 3 } }).state.settings;
+  assert.deepEqual([n.voice, n.voiceName, n.voiceRate], [false, 'Ava (Premium)', 1.2]);
+});

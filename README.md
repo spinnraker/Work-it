@@ -1,6 +1,6 @@
 # Work it
 
-Upper body and lower body interval workouts that run themselves: warm-up, timed circuits, then cool-down stretches. It times every interval and rest with sounds (no voice), shows the next exercise and the weight to grab, and keeps your log. Same look and setup as Habito, DTF and Pomo: black and white, no account, works offline.
+Upper body and lower body interval workouts that run themselves: warm-up, timed circuits, then cool-down stretches. It times every interval and rest with tones, a voice announces the next exercise, the screen shows and the weight to grab, and keeps your log. Same look and setup as Habito, DTF and Pomo: black and white, no account, works offline.
 
 ## Use it
 
@@ -86,7 +86,10 @@ Tap **Start workout** and put the phone where you can see it.
 
 - **Warm-up and cool-down**: each stretch gets a "Next up" card (6 s), a short get-ready, then the hold or the reps. Dynamic stretches are paced at 3 s a rep (change it in ⋯). "Each side" stretches do left, then right.
 - **Timed intervals** run as a circuit: every exercise in the block once, then the next round. 15 s rest between exercises, 30 s between rounds. During each rest the screen shows the next exercise and which dumbbells to grab.
-- Sounds only, no voice: ticks count down the last 3 seconds of every timer, a long high tone starts each interval and a falling pair ends it. A quick double blip marks halfway (intervals of 30 s or more), a rising pair starts a new round, and two low taps mean switch sides. Back-to-back intervals get a single "go" instead of a stop and a start on top of each other. Each step's sounds are scheduled ahead on the audio clock, so they land on time; pause, skip and back cancel them cleanly.
+- Tones: ticks count down the last 3 seconds of every timer, a long high tone starts each interval and a falling pair ends it. A quick double blip marks halfway (intervals of 40 s or more), a rising pair starts a new round, and two low taps mean switch sides. Back-to-back intervals get a single "go" instead of a stop and a start on top of each other. Each step's sounds are scheduled ahead on the audio clock, so they land on time; pause, skip and back cancel them cleanly.
+- **Voice** (⋯ → Voice): announces the next exercise by name, never weights. During a rest: "Next: Dumbbell bench press." Six seconds before back-to-back moves switch (the flow, Strength): "Next: Zen swings." At each block: "Mobility flow. First up: Body waves." Plus "Round 2 of 3" and "Switch sides." Names are tidied for speech (90/90 → "ninety ninety", KB → "kettlebell", Alt. → "alternating").
+  - It uses the best voice installed on the phone, Premium first, then Enhanced; pick another and set the speed under ⋯ → Voice, and Test voice plays a sample.
+  - **Premium voice on iPhone**: Settings → Accessibility → Spoken Content → Voices → English → pick one marked Premium (Ava, Zoe, Evan…) and download it, then choose it in the app. Web apps can only use voices installed on the phone.
 - **Sounds and music** (⋯ → With music). iPhone lets a web app do one of two things:
   - **Play over music** (default): your music keeps playing and the cues play on top. The ringer switch has to be on ring, or iOS mutes the cues.
   - **Play on silent**: cues play with the switch on silent, but iOS pauses your music for the workout.
